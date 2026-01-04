@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: buenbocado-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: buenbocado
+      POSTGRES_PASSWORD: buenbocado
+      POSTGRES_DB: buenbocado
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
