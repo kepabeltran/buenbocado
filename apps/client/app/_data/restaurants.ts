@@ -1,4 +1,4 @@
-export type Restaurant = {
+﻿export type Restaurant = {
   id: string;
   name: string;
   tagline: string;
@@ -54,4 +54,9 @@ export const restaurants: Restaurant[] = [
 
 export function getRestaurantById(id: string) {
   return restaurants.find((r) => r.id === id);
+}
+
+export function formatEuros(cents: number) {
+  const eur = cents / 100;
+  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(eur);
 }
