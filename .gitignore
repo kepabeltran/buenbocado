@@ -10,3 +10,7 @@ coverage
 pnpm-lock.yaml
 .turbo
 *.log
+
+# TypeScript build info (no subir)
+*.tsbuildinfo
+**/*.tsbuildinfo
