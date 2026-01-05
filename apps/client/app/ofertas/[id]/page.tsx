@@ -12,6 +12,7 @@ import {
   type PickupWindow,
 } from "../../_data/ofertas";
 import { getRemainingCapacity } from "../../_state/ofertaAvailability";
+import { getRestaurantById } from "../../_data/restaurants";
 
 function toYMD(d: Date) {
   const y = d.getFullYear();
@@ -31,6 +32,10 @@ export default function OfertaDetailPage() {
 
   const now = Date.now();
   const oferta = useMemo(() => (id ? getOfertaById(id) : null), [id]);
+  const restaurant = useMemo(
+    () => (oferta ? getRestaurantById(oferta.restaurantId) : undefined),
+    [oferta]
+  );
 
   const [qty, setQty] = useState(1);
   const [pax, setPax] = useState(2);
@@ -69,7 +74,6 @@ export default function OfertaDetailPage() {
 
   useEffect(() => {
     if (!oferta || oferta.cadencia !== "PROGRAMADA") return;
-    // Si no hay franja seleccionada o la elegida está agotada, elige la primera con cupo
     const current = selectedWindowId ? windowsWithRemaining.find((x) => x.w.id === selectedWindowId) : null;
     if (current && current.remaining > 0) return;
 
@@ -122,6 +126,8 @@ export default function OfertaDetailPage() {
     router.push(`/checkout/oferta/${oferta.id}${qsBase}${qsProgramada}`);
   }
 
+  const restaurantHref = `/restaurants/${oferta.restaurantId}?offer=${encodeURIComponent(oferta.id)}`;
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
       <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/70 backdrop-blur">
@@ -131,6 +137,13 @@ export default function OfertaDetailPage() {
           </Link>
 
           <div className="flex items-center gap-2">
+            <Link
+              href={restaurantHref}
+              className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+              title="Ver restaurante"
+            >
+              Restaurante
+            </Link>
             <Link href="/orders" className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50">
               Mis pedidos
             </Link>
@@ -142,31 +155,81 @@ export default function OfertaDetailPage() {
       </header>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-4 py-10 lg:grid-cols-[1fr_380px]">
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-xs text-zinc-500">{oferta.restaurantName}</div>
-          <h1 className="mt-1 text-2xl font-semibold">{oferta.titulo}</h1>
-          <p className="mt-3 text-sm text-zinc-600">{oferta.descripcion}</p>
+        <div className="space-y-6">
+          {/* Card detalle */}
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="text-xs text-zinc-500">{oferta.restaurantName}</div>
+            <h1 className="mt-1 text-2xl font-semibold">{oferta.titulo}</h1>
+            <p className="mt-3 text-sm text-zinc-600">{oferta.descripcion}</p>
 
-          <div className="mt-6 grid gap-3 text-sm">
-            <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-              <div className="text-xs text-zinc-500">Recogida / Sala</div>
-              <div className="font-semibold">{recogida} · {oferta.pickupAddress}</div>
+            <div className="mt-6 grid gap-3 text-sm">
+              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+                <div className="text-xs text-zinc-500">Recogida / Sala</div>
+                <div className="font-semibold">
+                  {recogida} · {oferta.pickupAddress}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+                <div className="text-xs text-zinc-500">{oferta.cadencia === "PROGRAMADA" ? "Disponible hasta" : "Caduca en"}</div>
+                <div className="font-mono font-semibold">{caduca}</div>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-              <div className="text-xs text-zinc-500">{oferta.cadencia === "PROGRAMADA" ? "Disponible hasta" : "Caduca en"}</div>
-              <div className="font-mono font-semibold">{caduca}</div>
+            <div className="mt-6 rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+              <div className="text-xs text-zinc-500">Precio</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <div className="text-xl font-semibold">{formatEuros(oferta.priceCents)}</div>
+                {oferta.originalPriceCents > 0 && (
+                  <div className="text-sm text-zinc-500 line-through">{formatEuros(oferta.originalPriceCents)}</div>
+                )}
+                {pct > 0 && <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">-{pct}%</span>}
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-            <div className="text-xs text-zinc-500">Precio</div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <div className="text-xl font-semibold">{formatEuros(oferta.priceCents)}</div>
-              {oferta.originalPriceCents > 0 && (
-                <div className="text-sm text-zinc-500 line-through">{formatEuros(oferta.originalPriceCents)}</div>
-              )}
-              {pct > 0 && <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">-{pct}%</span>}
+          {/* ✅ FICHA RESTAURANTE (para que no “parezca sin desarrollar”) */}
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-zinc-500">Restaurante</div>
+                <div className="mt-1 text-lg font-semibold text-zinc-900">
+                  {restaurant?.name ?? oferta.restaurantName}
+                </div>
+                <div className="mt-1 text-sm text-zinc-600">
+                  {(restaurant?.neighborhood ? restaurant.neighborhood + " · " : "") + (restaurant?.city ?? "")}
+                </div>
+              </div>
+
+              <Link
+                href={restaurantHref}
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+              >
+                Ver restaurante →
+              </Link>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-xs font-semibold text-zinc-500">Dirección</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">
+                  {restaurant?.address ?? "—"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-xs font-semibold text-zinc-500">Horario</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">
+                  {restaurant?.hours ?? "—"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-xs font-semibold text-zinc-500">Mapa</div>
+                <div className="mt-2 flex h-12 items-center justify-center rounded-xl border border-zinc-200 bg-white text-xs text-zinc-600">
+                  (Mapa real en producción)
+                </div>
+              </div>
             </div>
           </div>
         </div>
