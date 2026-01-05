@@ -48,7 +48,6 @@ export default function OffersPage({ searchParams }: { searchParams: SP }) {
   } else if (sort === "price") {
     list.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
   } else {
-    // urgency: primero los drops que caducan antes; luego planned
     list.sort((a, b) => {
       const ax = a.kind === "drop" ? (a.expiresInMin ?? 9999) : 99999;
       const bx = b.kind === "drop" ? (b.expiresInMin ?? 9999) : 99999;
@@ -63,7 +62,6 @@ export default function OffersPage({ searchParams }: { searchParams: SP }) {
 
   return (
     <div className="space-y-6">
-      {/* Header con “look app” */}
       <section className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
         <div className="relative p-6 md:p-7">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-100 via-rose-50 to-indigo-100 opacity-80" />
@@ -93,7 +91,6 @@ export default function OffersPage({ searchParams }: { searchParams: SP }) {
               </div>
             </div>
 
-            {/* Buscador + filtros (funcionales via query params) */}
             <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto]">
               <form action="/offers" className="flex gap-2">
                 <input
@@ -187,77 +184,97 @@ export default function OffersPage({ searchParams }: { searchParams: SP }) {
         </div>
       </section>
 
-      {/* Grid de tarjetas (100% clicables) */}
       <div className="grid gap-5 md:grid-cols-2">
         {list.map((o) => (
-          <Link
+          <div
             key={o.id}
-            href={`/offers/${o.id}`}
-            className="group block overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-[2px] hover:shadow-md"
+            className="group relative overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-[2px] hover:shadow-md"
           >
-            {/* hueco foto */}
-            <div className="relative aspect-[16/10] w-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-200 via-rose-100 to-indigo-100 opacity-75" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.9),transparent_55%)]" />
-              <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100 bg-black/5" />
+            {/* ✅ Overlay por ENCIMA del contenido */}
+            <Link
+              href={`/offers/${o.id}`}
+              className="absolute inset-0 z-10"
+              aria-label={`Ver oferta: ${o.title}`}
+            >
+              <span className="sr-only">Ver oferta</span>
+            </Link>
 
-              <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                <span className="rounded-full bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-white">
-                  -{o.discountPct}%
-                </span>
-                <span className="rounded-full border border-white/40 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
-                  {kindLabel(o)}
-                </span>
-              </div>
+            {/* Contenido debajo del overlay */}
+            <div className="relative z-0">
+              <div className="relative aspect-[16/10] w-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-200 via-rose-100 to-indigo-100 opacity-75" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.9),transparent_55%)]" />
+                <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100 bg-black/5" />
 
-              <div className="absolute right-4 top-4">
-                <span className="rounded-full border border-white/40 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
-                  {timeLabel(o)}
-                </span>
-              </div>
-
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/40 bg-white/70 px-3 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
-                    <span className="truncate">{o.restaurantName}</span>
-                  </div>
-                  <div className="mt-2 text-lg font-semibold text-zinc-900 drop-shadow-sm">
-                    {o.title}
-                  </div>
-                </div>
-
-                <div className="shrink-0 rounded-2xl border border-white/40 bg-white/75 px-3 py-2 text-right backdrop-blur">
-                  <div className="text-sm font-semibold text-zinc-900">{euros(o.price)}</div>
-                  <div className="text-xs text-zinc-500 line-through">{euros(o.originalPrice)}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5">
-              <p className="text-sm text-zinc-600">{o.description}</p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
-                  {o.pickupLabel}
-                </span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
-                  Stock: {o.stock}
-                </span>
-                {(o.tags || []).slice(0, 2).map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700"
-                  >
-                    {t}
+                <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-white">
+                    -{o.discountPct}%
                   </span>
-                ))}
+                  <span className="rounded-full border border-white/40 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
+                    {kindLabel(o)}
+                  </span>
+                </div>
+
+                <div className="absolute right-4 top-4">
+                  <span className="rounded-full border border-white/40 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
+                    {timeLabel(o)}
+                  </span>
+                </div>
+
+                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/40 bg-white/70 px-3 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
+                      <span className="truncate">{o.restaurantName}</span>
+                    </div>
+                    <div className="mt-2 text-lg font-semibold text-zinc-900 drop-shadow-sm">
+                      {o.title}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 rounded-2xl border border-white/40 bg-white/75 px-3 py-2 text-right backdrop-blur">
+                    <div className="text-sm font-semibold text-zinc-900">{euros(o.price)}</div>
+                    <div className="text-xs text-zinc-500 line-through">{euros(o.originalPrice)}</div>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-4 text-sm font-semibold text-amber-700 group-hover:text-amber-800">
-                Ver oferta →
+              <div className="p-5">
+                <p className="text-sm text-zinc-600">{o.description}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
+                    {o.pickupLabel}
+                  </span>
+                  <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
+                    Stock: {o.stock}
+                  </span>
+                  {(o.tags || []).slice(0, 2).map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-amber-700 group-hover:text-amber-800">
+                    Ver oferta →
+                  </div>
+
+                  {/* ✅ Botón por ENCIMA del overlay */}
+                  <Link
+                    href={`/restaurants/${o.restaurantId}?offer=${o.id}`}
+                    className="relative z-20 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+                    title="Ver restaurante"
+                  >
+                    Ver restaurante
+                  </Link>
+                </div>
               </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>
