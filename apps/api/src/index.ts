@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+﻿import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 const app = Fastify({ logger: true });
@@ -52,6 +52,11 @@ app.get("/menus", async () => ({
   data: menus
 }));
 
+  
+// Aliases bajo /api para que el client sea consistente
+app.get("/api/health", async () => ({ status: "ok" }));
+app.get("/api/menus", async () => ({ data: menus }));
+app.get("/api/menus/active", async () => ({ data: menus })); // por ahora igual; ya filtraremos "active" cuando haya BD
 app.get<{ Params: { id: string } }>("/menus/:id", async (request, reply) => {
   const menu = menus.find((item) => item.id === request.params.id);
   if (!menu) {
@@ -81,3 +86,4 @@ app.post("/restaurant/menus", async () => ({
 const port = Number(process.env.PORT ?? 4000);
 
 app.listen({ port, host: "0.0.0.0" });
+
