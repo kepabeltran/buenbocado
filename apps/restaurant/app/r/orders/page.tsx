@@ -277,9 +277,7 @@ export default function OrdersPage() {
             type="button"
             onClick={() => loadOrders()}
             className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-          >
-            Actualizar
-          </button>
+          >Refrescar</button><span className="text-xs opacity-70 ml-2">Se actualiza solo</span>
         </form>
 
         {message && (
