@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Chip } from "@buenbocado/ui";
 
 type OrderStatus = "CREATED" | "PREPARING" | "READY" | "DELIVERED";
@@ -32,13 +32,6 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   DELIVERED: "Entregado",
 };
 
-const STATUS_ORDER_IN_PROGRESS: Record<OrderStatus, number> = {
-  READY: 0,
-  PREPARING: 1,
-  CREATED: 2,
-  DELIVERED: 99,
-};
-
 function formatDateTime(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -52,88 +45,137 @@ function formatDateTime(iso: string) {
 
 function shortId(id: string) {
   if (!id) return "";
-  return id.length > 10 ? `${id.slice(-6)}` : id;
+  return id.slice(-6);
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true); // solo primera carga
+  const [refreshing, setRefreshing] = useState(false); // manual/poll
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
-  const normalizedCode = useMemo(() => code.replace(/\D/g, ""), [code]);
-
   const [showDelivered, setShowDelivered] = useState(false);
+
+  const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const inFlightRef = useRef(false);
+  const pollTimerRef = useRef<number | null>(null);
 
   const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:4000").replace(/\/$/, "");
 
-  async function loadOrders(opts?: { initial?: boolean }) {
-    const initial = Boolean(opts?.initial);
+  const inProgress = useMemo(() => {
+    const list = orders.filter((o) => o.status !== "DELIVERED");
+    list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    return list;
+  }, [orders]);
 
-    if (initial) setLoading(true);
-    else setRefreshing(true);
+  const delivered = useMemo(() => {
+    const list = orders.filter((o) => o.status === "DELIVERED");
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return list;
+  }, [orders]);
 
-    setLoadError(null);
-
-    try {
-      const res = await fetch(`${API_BASE}/api/restaurant/orders?take=50`, { cache: "no-store" });
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const msg = json?.message || json?.error || `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-
-      setOrders(Array.isArray(json?.data) ? json.data : []);
-    } catch (e: any) {
-      setLoadError(String(e?.message ?? e ?? "Error cargando pedidos"));
-    } finally {
-      if (initial) setLoading(false);
-      else setRefreshing(false);
-    }
+  function focusCode(select: boolean = true) {
+    const el = codeInputRef.current;
+    if (!el) return;
+    el.focus();
+    if (select) el.select();
   }
 
+  const loadOrders = useCallback(
+    async (opts?: { initial?: boolean; focusAfter?: boolean; selectAfter?: boolean }) => {
+      const initial = Boolean(opts?.initial);
+
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+
+      if (initial) setLoading(true);
+      else setRefreshing(true);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/restaurant/orders?take=200`, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          const msg = json?.message || json?.error || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+
+        setOrders(Array.isArray(json?.data) ? json.data : []);
+        setLoadError(null);
+
+        if (opts?.focusAfter) {
+          setTimeout(() => focusCode(Boolean(opts?.selectAfter)), 0);
+        }
+      } catch (e: any) {
+        setLoadError(String(e?.message ?? e ?? "Error cargando pedidos"));
+      } finally {
+        if (initial) setLoading(false);
+        else setRefreshing(false);
+        inFlightRef.current = false;
+      }
+    },
+    [API_BASE]
+  );
+
   useEffect(() => {
-    loadOrders({ initial: true });
+    loadOrders({ initial: true, focusAfter: true, selectAfter: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const inProgress = useMemo(() => orders.filter((o) => o.status !== "DELIVERED"), [orders]);
-  const delivered = useMemo(() => orders.filter((o) => o.status === "DELIVERED"), [orders]);
+  useEffect(() => {
+    if (!message) return;
+    const ms = message.type === "ok" ? 1600 : 2400;
+    const t = setTimeout(() => setMessage(null), ms);
+    return () => clearTimeout(t);
+  }, [message]);
 
-  const inProgressSorted = useMemo(() => {
-    const copy = [...inProgress];
-    copy.sort((a, b) => {
-      const sa = STATUS_ORDER_IN_PROGRESS[a.status] ?? 50;
-      const sb = STATUS_ORDER_IN_PROGRESS[b.status] ?? 50;
-      if (sa !== sb) return sa - sb;
+  useEffect(() => {
+    const stop = () => {
+      if (pollTimerRef.current !== null) {
+        window.clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
 
-      const ta = new Date(a.createdAt).getTime();
-      const tb = new Date(b.createdAt).getTime();
-      // Dentro del mismo estado: más antiguo primero (operativo)
-      return ta - tb;
-    });
-    return copy;
-  }, [inProgress]);
+    const start = () => {
+      stop();
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
 
-  const deliveredSorted = useMemo(() => {
-    const copy = [...delivered];
-    copy.sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime();
-      const tb = new Date(b.createdAt).getTime();
-      // Entregados: más reciente primero
-      return tb - ta;
-    });
-    return copy;
-  }, [delivered]);
+      pollTimerRef.current = window.setInterval(() => {
+        loadOrders();
+      }, 10000);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        loadOrders();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
+    };
+  }, [loadOrders]);
+
+  const normalizedCode = useMemo(() => code.replace(/\D/g, ""), [code]);
 
   async function markDeliveredByCode() {
     setMessage(null);
 
     if (normalizedCode.length < 3) {
       setMessage({ type: "error", text: "Introduce un código válido (solo números)." });
+      focusCode(true);
       return;
     }
 
@@ -157,9 +199,10 @@ export default function OrdersPage() {
         text: json?.alreadyDelivered ? "Ese pedido ya estaba entregado." : "Pedido marcado como ENTREGADO.",
       });
 
-      await loadOrders();
+      await loadOrders({ focusAfter: true, selectAfter: true });
     } catch (e: any) {
       setMessage({ type: "error", text: String(e?.message ?? e ?? "Error marcando entregado") });
+      focusCode(true);
     }
   }
 
@@ -168,31 +211,38 @@ export default function OrdersPage() {
     markDeliveredByCode();
   }
 
+  const topStatus = useMemo(() => {
+    if (loading) return "Cargando";
+    if (loadError) return "Error";
+    if (refreshing) return "Actualizando";
+    return "Listo";
+  }, [loading, loadError, refreshing]);
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">Pedidos</p>
         <h1 className="text-3xl font-bold text-slate-900">Estados en tiempo real</h1>
         <p className="text-sm text-slate-600">
-          Para evitar errores, <span className="font-semibold">la entrega se confirma introduciendo el código</span> que
-          enseña el cliente.
+          Para evitar errores, la entrega se confirma introduciendo el <span className="font-semibold">código</span>{" "}
+          que enseña el cliente.
         </p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">En curso</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">En curso</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{inProgress.length}</p>
         </Card>
+
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Entregados</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Entregados</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{delivered.length}</p>
         </Card>
+
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Estado</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
-            {loading ? "Cargando" : refreshing ? "Actualizando" : "Listo"}
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</p>
+          <p className="mt-1 text-base font-semibold text-slate-900">{topStatus}</p>
         </Card>
       </div>
 
@@ -201,19 +251,24 @@ export default function OrdersPage() {
           <div className="flex-1">
             <label className="text-xs font-semibold text-slate-700">Código de recogida</label>
             <input
+              ref={codeInputRef}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              onFocus={(e) => e.currentTarget.select()}
               inputMode="numeric"
+              pattern="\d*"
+              autoComplete="one-time-code"
+              enterKeyHint="done"
               placeholder="Ej. 054128"
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-300"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-lg font-semibold text-slate-900 outline-none focus:border-slate-300"
             />
-            <p className="mt-1 text-xs text-slate-500">Solo números. Se valida al confirmar.</p>
+            <p className="mt-1 text-xs text-slate-500">Solo números. Enter = confirmar.</p>
           </div>
 
           <button
             type="submit"
-            disabled={refreshing}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95 active:opacity-90 disabled:opacity-60"
+            disabled={loading || normalizedCode.length === 0}
+            className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:opacity-95 active:opacity-90 disabled:opacity-50"
           >
             Marcar como entregado
           </button>
@@ -221,17 +276,16 @@ export default function OrdersPage() {
           <button
             type="button"
             onClick={() => loadOrders()}
-            disabled={refreshing}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
           >
-            {refreshing ? "Actualizando" : "Actualizar"}
+            Actualizar
           </button>
         </form>
 
         {message && (
           <div
             className={[
-              "mt-3 rounded-xl px-3 py-2 text-sm",
+              "mt-3 rounded-xl px-3 py-2 text-sm font-medium",
               message.type === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800",
             ].join(" ")}
           >
@@ -246,31 +300,28 @@ export default function OrdersPage() {
         )}
       </Card>
 
-      {/* EN CURSO */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between">
           <h2 className="text-sm font-semibold text-slate-900">En curso</h2>
-          <p className="text-xs text-slate-500">{inProgressSorted.length} pedidos</p>
+          <p className="text-xs text-slate-500">{inProgress.length} pedidos</p>
         </div>
 
-        <div className="grid gap-4">
-          {loading ? (
-            <Card className="p-4">
-              <p className="text-sm text-slate-600">Cargando pedidos</p>
-            </Card>
-          ) : inProgressSorted.length === 0 ? (
-            <Card className="p-4">
-              <p className="text-sm text-slate-600">No hay pedidos en curso.</p>
-            </Card>
-          ) : (
-            inProgressSorted.map((o) => (
+        {loading ? (
+          <Card className="p-4">
+            <p className="text-sm text-slate-600">Cargando pedidos</p>
+          </Card>
+        ) : inProgress.length === 0 ? (
+          <Card className="p-4">
+            <p className="text-sm text-slate-600">No hay pedidos en curso.</p>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {inProgress.map((o) => (
               <Card key={o.id} className="flex items-center justify-between p-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate" title={o.menu?.title ?? "Pedido"}>
+                  <p className="text-sm font-semibold text-slate-900 truncate">
                     {o.menu?.title ?? "Pedido"}{" "}
-                    <span className="text-xs font-normal text-slate-500" title={o.id}>
-                      ({shortId(o.id)})
-                    </span>
+                    <span className="text-xs font-normal text-slate-500">({shortId(o.id)})</span>
                   </p>
                   <p className="text-xs text-slate-500">
                     {o.customerName} · {formatDateTime(o.createdAt)}
@@ -282,39 +333,36 @@ export default function OrdersPage() {
                 </div>
                 <Chip>{STATUS_LABEL[o.status]}</Chip>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ENTREGADOS */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Entregados</h2>
           <button
             type="button"
             onClick={() => setShowDelivered((v) => !v)}
-            className="text-xs font-semibold text-slate-900 underline decoration-slate-200 underline-offset-4 hover:decoration-slate-400"
+            className="text-xs font-semibold text-slate-900 hover:opacity-80"
           >
-            {showDelivered ? "Ocultar" : "Ver"} ({deliveredSorted.length})
+            {showDelivered ? "Ocultar" : `Ver (${delivered.length})`}
           </button>
         </div>
 
         {showDelivered ? (
-          <div className="grid gap-4">
-            {deliveredSorted.length === 0 ? (
-              <Card className="p-4">
-                <p className="text-sm text-slate-600">Todavía no hay entregados.</p>
-              </Card>
-            ) : (
-              deliveredSorted.map((o) => (
+          delivered.length === 0 ? (
+            <Card className="p-4">
+              <p className="text-sm text-slate-600">Todavía no hay entregados.</p>
+            </Card>
+          ) : (
+            <div className="grid gap-3">
+              {delivered.map((o) => (
                 <Card key={o.id} className="flex items-center justify-between p-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate" title={o.menu?.title ?? "Pedido"}>
+                    <p className="text-sm font-semibold text-slate-900 truncate">
                       {o.menu?.title ?? "Pedido"}{" "}
-                      <span className="text-xs font-normal text-slate-500" title={o.id}>
-                        ({shortId(o.id)})
-                      </span>
+                      <span className="text-xs font-normal text-slate-500">({shortId(o.id)})</span>
                     </p>
                     <p className="text-xs text-slate-500">
                       {o.customerName} · {formatDateTime(o.createdAt)}
@@ -326,9 +374,9 @@ export default function OrdersPage() {
                   </div>
                   <Chip>{STATUS_LABEL[o.status]}</Chip>
                 </Card>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )
         ) : null}
       </section>
     </section>

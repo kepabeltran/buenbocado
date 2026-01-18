@@ -14,3 +14,7 @@ pnpm-lock.yaml
 # TypeScript build info (no subir)
 *.tsbuildinfo
 **/*.tsbuildinfo
+
+# Backups locales
+*.bak_*
+
