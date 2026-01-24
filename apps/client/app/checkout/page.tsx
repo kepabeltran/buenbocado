@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CartPill from "../_components/CartPill";
 import { useCart } from "../_state/cart";
-import { createOrder } from "../_state/orders";
+import { createOrder } from "@/lib/api";
 import { getRestaurantById, restaurants, formatEuros } from "../_data/restaurants";
 
 export default function CheckoutPage() {
@@ -19,14 +19,14 @@ export default function CheckoutPage() {
 
   const lineItems = useMemo(() => {
     if (!restaurant) return [];
-    const map = new Map(restaurant.categories.flatMap((c) => c.items.map((it) => [it.id, it])));
+    const map = new Map(((restaurant as any).categories ?? []).flatMap((c: any) => (c?.items ?? []).map((it: any) => [it.id, it])));
     return Object.entries(items)
       .filter(([k, qty]) => k.startsWith(`${restaurant.id}:`) && qty > 0)
       .map(([k, qty]) => {
         const itemId = k.split(":")[1];
         const it = map.get(itemId);
         if (!it) return null;
-        return { itemId, name: it.name, qty, priceCents: it.priceCents };
+        return { itemId, name: (it as any).name, qty, priceCents: (it as any).priceCents };
       })
       .filter(Boolean) as { itemId: string; name: string; qty: number; priceCents: number }[];
   }, [items, restaurant]);
@@ -37,30 +37,33 @@ export default function CheckoutPage() {
   );
 
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function onConfirm() {
+  async function onConfirm() {
     setError(null);
 
     if (!restaurant) return setError("No hay restaurante activo en el carrito.");
     if (lineItems.length === 0) return setError("Tu carrito está vacío.");
     if (name.trim().length < 2) return setError("Pon tu nombre (mínimo 2 letras).");
+
+    const emailClean = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) return setError("Pon un email válido.");
+
     if (phone.trim().length < 6) return setError("Pon un teléfono válido.");
     if (address.trim().length < 6) return setError("Pon una dirección válida.");
 
-    const order = createOrder({
-      restaurantId: restaurant.id,
-      restaurantName: restaurant.name,
-      customer: { name: name.trim(), phone: phone.trim(), address: address.trim(), notes: notes.trim() || undefined },
-      items: lineItems,
-      subtotalCents,
+    const res = await createOrder({
+      menuId: lineItems[0]?.itemId ? String(lineItems[0].itemId) : "",
+      customerName: name.trim(),
+      customerEmail: emailClean,
     });
 
     clear();
-    router.push(`/order/${order.id}`);
+    router.push(`/ticket/${res.order.id}`);
   }
 
   return (
@@ -82,7 +85,7 @@ export default function CheckoutPage() {
               href={restaurant ? `/restaurants/${restaurant.id}` : "/restaurants"}
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
             >
-              ← Volver
+              ? Volver
             </Link>
             <CartPill />
           </div>
@@ -104,6 +107,17 @@ export default function CheckoutPage() {
                 onChange={(e) => setName(e.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
                 placeholder="Tu nombre"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-700">Email</label>
+              <input
+                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-400"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                inputMode="email"
+                autoComplete="email"
               />
             </div>
 
@@ -176,7 +190,7 @@ export default function CheckoutPage() {
                     <div key={l.itemId} className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium">
-                          {l.qty}× {l.name}
+                          {l.qty} · {l.name}
                         </div>
                         <div className="text-xs text-zinc-500">{formatEuros(l.priceCents)}</div>
                       </div>
@@ -204,3 +218,8 @@ export default function CheckoutPage() {
     </main>
   );
 }
+
+
+
+
+

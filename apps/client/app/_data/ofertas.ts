@@ -34,7 +34,7 @@ export type Oferta = {
 
   // PROGRAMADA (2–3 días)
   availableFromISO?: string;
-  availableToISO: string; // obligatorio si PROGRAMADA
+  availableToISO?: string; // obligatorio si PROGRAMADA
   pickupWindows?: PickupWindow[]; // 1–2 ventanas recomendadas
 
   tags: string[];
@@ -138,7 +138,49 @@ export const ofertas: Oferta[] = [
 ];
 
 export function getOfertaById(id: string) {
-  return ofertas.find((o) => o.id === id) ?? null;
+  const raw = (id ?? "").toString();
+  const norm = decodeURIComponent(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  const list = ofertas as any[];
+
+  // 1) match exacto por id
+  const exact = list.find((o) => {
+    const oid = String(o.id ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-");
+    return oid === norm;
+  });
+  if (exact) return exact;
+
+  // 2) match por slug/alias (si existen)
+  const bySlug = list.find((o) => {
+    const slug =
+      typeof o.slug === "string" ? o.slug :
+      typeof o.alias === "string" ? o.alias :
+      "";
+    const s = String(slug ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-");
+    return s && s === norm;
+  });
+  if (bySlug) return bySlug;
+
+  // 3) match parcial (pack-tapas-uh -> pack-tapas)
+  const partial = list.find((o) => {
+    const oid = String(o.id ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, "-");
+    if (!oid) return false;
+    return norm.includes(oid) || oid.includes(norm);
+  });
+
+  return partial ?? null;
 }
 
 export function formatEuros(cents: number) {
@@ -164,7 +206,7 @@ export function fmtCountdown(ms: number) {
 
 export function getTimes(oferta: Oferta, nowMs: number) {
   if (oferta.cadencia === "PROGRAMADA") {
-    const expiresAt = new Date(oferta.availableToISO);
+    const expiresAt = new Date(oferta.availableToISO ?? (Date.now() + 1000 * 60 * 60 * 24 * 365));
     const pickupFrom = new Date(nowMs);
     const pickupTo = new Date(nowMs);
     return { expiresAt, pickupFrom, pickupTo };
@@ -182,7 +224,7 @@ export function fmtDateLong(d: Date) {
 
 export function ofertaLabelCaduca(oferta: Oferta, nowMs: number) {
   if (oferta.cadencia === "PROGRAMADA") {
-    const until = new Date(oferta.availableToISO);
+    const until = new Date(oferta.availableToISO ?? (Date.now() + 1000 * 60 * 60 * 24 * 365));
     return `Hasta ${fmtDateLong(until)}`;
   }
   const { expiresAt } = getTimes(oferta, nowMs);

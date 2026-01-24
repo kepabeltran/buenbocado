@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { restaurants } from "../_data/restaurants";
 
 function Chip({ children }: { children: React.ReactNode }) {

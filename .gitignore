@@ -1,4 +1,4 @@
-node_modules
+﻿node_modules
 .next
 .dist
 dist
@@ -7,10 +7,19 @@ out
 .env.local
 .DS_Store
 coverage
-pnpm-lock.yaml
 .turbo
 *.log
 
 # TypeScript build info (no subir)
 *.tsbuildinfo
 **/*.tsbuildinfo
+
+# Backups locales
+*.bak_*
+
+
+# Local backups / encoding reports
+_backup_encoding_*/
+backup_fffd_*/
+encoding_*.txt
+fffd_*.txt

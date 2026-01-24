@@ -1,141 +1,121 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { offers, euros } from "../../_data/offers";
+import { formatEuros } from "../../_data/restaurants";
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-white/40 bg-white/70 px-2.5 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
-      {children}
-    </span>
-  );
+type ApiMenu = {
+  id: string;
+  restaurant: string;
+  type: "TAKEAWAY" | "DINE_IN";
+  title: string;
+  description?: string | null;
+  priceCents: number;
+  currency: string;
+  timeRemaining: string;
+  distanceKm: number;
+  badge?: string | null;
+  imageUrl?: string | null;
+};
+
+function getApiBase(): string {
+  const rawBase =
+    process.env.BUENBOCADO_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://127.0.0.1:4000";
+
+  return rawBase.replace(/\/api\/?$/, "");
 }
 
-export default function OfferDetailPage({ params }: { params: { id: string } }) {
-  const offer = offers.find((o) => o.id === params.id);
-  if (!offer) return notFound();
+async function getMenuById(id: string): Promise<ApiMenu | null> {
+  const base = getApiBase();
 
-  const kindLabel = offer.kind === "planned" ? "Excedente" : "Última hora";
-  const timeLabel =
-    offer.kind === "planned"
-      ? `Disponible ${offer.durationDays ?? 1} días`
-      : `Caduca en ${offer.expiresInMin ?? 0} min`;
+  // DEV: mantenemos lat/lng fijo para distancia "real" (como acordamos)
+  const url = `${base}/api/menus/active?lat=37.176&lng=-3.600`;
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/offers"
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-        >
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return null;
+
+  const payload = (await res.json()) as { data: ApiMenu[] };
+  return payload.data.find((m) => m.id === id) ?? null;
+}
+
+export default async function OfferDetailPage({ params }: { params: { id: string } }) {
+  const menu = await getMenuById(params.id);
+
+  if (!menu) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
           ← Volver a ofertas
         </Link>
-        <Link
-          href="/"
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-        >
-          Home
-        </Link>
-      </div>
 
-      <section className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
-        <div className="relative h-56 md:h-72">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-200 via-rose-100 to-indigo-200 opacity-80" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.95),transparent_55%)]" />
+        <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
+          <h1 className="text-xl font-semibold">Oferta no encontrada</h1>
+          <p className="mt-2 text-sm text-zinc-600">
+            Puede que haya caducado o que el listado haya cambiado. Vuelve a ofertas y entra de nuevo.
+          </p>
+          <div className="mt-6">
+            <Link
+              href="/offers"
+              className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+            >
+              Ver ofertas activas
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
-          <div className="absolute left-5 top-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
-              -{offer.discountPct}%
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-10">
+      <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
+        ← Volver a ofertas
+      </Link>
+
+      <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <div className="text-xs text-zinc-500">{menu.restaurant} · {menu.type}</div>
+        <h1 className="mt-2 text-2xl font-semibold">{menu.title}</h1>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
+            {formatEuros(menu.priceCents)}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+            {menu.timeRemaining}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+            {menu.distanceKm.toFixed(1)} km
+          </span>
+          {menu.badge ? (
+            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
+              {menu.badge}
             </span>
-            <Pill>{kindLabel}</Pill>
-            <Pill>{timeLabel}</Pill>
-          </div>
-
-          <div className="absolute bottom-5 left-5 right-5">
-            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/40 bg-white/70 px-3 py-1 text-xs font-semibold text-zinc-800 backdrop-blur">
-              <span className="truncate">{offer.restaurantName}</span>
-            </div>
-
-            <h1 className="mt-3 text-2xl font-semibold text-zinc-900 md:text-3xl">
-              {offer.title}
-            </h1>
-
-            <p className="mt-2 max-w-3xl text-sm text-zinc-700">
-              {offer.description}
-            </p>
-          </div>
+          ) : null}
         </div>
 
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-              <div className="text-sm font-semibold text-zinc-900">Recogida</div>
-              <div className="mt-1 text-sm text-zinc-700">{offer.pickupLabel}</div>
+        <p className="mt-6 text-sm text-zinc-700">
+          {menu.description ?? "Oferta disponible por tiempo limitado."}
+        </p>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200">
-                  Stock: {offer.stock}
-                </span>
-                {(offer.tags || []).map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href={`/checkout/oferta/${menu.id}`}
+            className="inline-flex justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+          >
+            Reservar
+          </Link>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <div className="text-sm font-semibold text-zinc-900">En producción</div>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
-                <li>Foto real subida por el restaurante.</li>
-                <li>Franja horaria exacta + cupos por franja.</li>
-                <li>Ticket con código + estados en tiempo real.</li>
-              </ul>
-            </div>
-          </div>
-
-          <aside className="rounded-2xl border border-zinc-200 bg-white p-4 lg:sticky lg:top-6">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <div className="text-xs text-zinc-500">Desde</div>
-                <div className="text-2xl font-semibold text-zinc-900">
-                  {euros(offer.price)}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-zinc-500 line-through">
-                  {euros(offer.originalPrice)}
-                </div>
-                <div className="text-xs font-semibold text-amber-700">
-                  Ahorro {offer.discountPct}%
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2">
-              <Link
-                href={`/restaurants/${offer.restaurantId}?offer=${offer.id}`}
-                className="rounded-2xl bg-amber-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-amber-700"
-              >
-                Ver restaurante
-              </Link>
-
-              <Link
-                href={`/checkout/oferta/${offer.id}`}
-                className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-center text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-              >
-                Reservar (demo)
-              </Link>
-            </div>
-
-            <p className="mt-3 text-xs text-zinc-600">
-              En MVP es demo. En producción: pago/reserva + ticket.
-            </p>
-          </aside>
+          <Link
+            href="/offers"
+            className="inline-flex justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+          >
+            Seguir viendo ofertas
+          </Link>
         </div>
-      </section>
-    </div>
+
+        <div className="mt-6 text-xs text-zinc-500">
+          ID: <span className="font-mono">{menu.id}</span>
+        </div>
+      </div>
+    </main>
   );
 }

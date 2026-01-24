@@ -1,38 +1,98 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { createOrder } from "../../../_state/orders";
-import {
-  formatEuros,
-  getOfertaById,
-  discountPct,
-  ofertaLabelRecogida,
-} from "../../../_data/ofertas";
-import { reserveOne } from "../../../_state/ofertaAvailability";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+
+type ApiMenu = {
+  id: string;
+  restaurant: string;
+  type: "TAKEAWAY" | "DINEIN";
+  title: string;
+  description: string;
+  priceCents: number;
+  currency: string;
+  timeRemaining: string;
+  distanceKm: number;
+  badge: string | null;
+  imageUrl: string | null;
+};
+
+function formatEurosFromCents(cents: number) {
+  const euros = cents / 100;
+  return euros.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+}
+
+function pickOrderId(json: any): string | null {
+  const id =
+    json?.order?.id ??
+    json?.data?.id ??
+    json?.id ??
+    json?.orderId ??
+    null;
+  return typeof id === "string" && id.trim() ? id : null;
+}
 
 export default function CheckoutOfertaPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const sp = useSearchParams();
   const id = params?.id;
 
-  const oferta = useMemo(() => (id ? getOfertaById(id) : null), [id]);
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL_BASE ||
+    "http://127.0.0.1:4000";
 
-  const qty = Math.max(1, Number(sp.get("qty") ?? "1"));
-  const pax = Math.max(1, Number(sp.get("pax") ?? "2"));
-  const day = sp.get("day") ?? null;
-  const windowId = sp.get("window") ?? null;
+  const [apiOffer, setApiOffer] = useState<ApiMenu | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const now = Date.now();
+  useEffect(() => {
+    let cancelled = false;
 
-  if (!id || !oferta) {
+    async function run() {
+      if (!id) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        // En dev mantenemos lat/lng hardcodeado (acordado)
+        const url = `${apiBase}/api/menus/active?lat=37.176&lng=-3.600`;
+        const res = await fetch(url, { cache: "no-store" });
+        const json = await res.json();
+
+        const found: ApiMenu | null = Array.isArray(json?.data)
+          ? json.data.find((m: ApiMenu) => m.id === id) ?? null
+          : null;
+
+        if (!cancelled) setApiOffer(found);
+      } catch {
+        if (!cancelled) setApiOffer(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, apiBase]);
+
+  const headerText = useMemo(() => {
+    if (!apiOffer) return "";
+    const kind = apiOffer.type === "TAKEAWAY" ? "Para llevar" : "En el local";
+    return `${apiOffer.restaurant} · ${kind} · Caduca en ${apiOffer.timeRemaining}`;
+  }, [apiOffer]);
+
+  if (!id) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
         <div className="mx-auto max-w-3xl px-4 py-16">Oferta inválida.</div>
@@ -40,87 +100,91 @@ export default function CheckoutOfertaPage() {
     );
   }
 
-  const pct = discountPct(oferta);
-  const recogidaLabel = ofertaLabelRecogida(oferta, now);
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
+        <div className="mx-auto max-w-3xl px-4 py-16">Cargando…</div>
+      </main>
+    );
+  }
 
-  const selectedWindow = oferta.cadencia === "PROGRAMADA"
-    ? (oferta.pickupWindows ?? []).find((w) => w.id === windowId) ?? null
-    : null;
+  if (!apiOffer) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
+        <div className="mx-auto max-w-3xl px-4 py-16">Oferta inválida.</div>
+      </main>
+    );
+  }
 
-  const lineQty = oferta.tipo === "PACK" ? qty : 1;
-  const lineName = oferta.tipo === "PACK" ? oferta.titulo : `Reserva mesa (${pax} pax) · ${oferta.titulo}`;
-  const subtotalCents = lineQty * oferta.priceCents;
-
-  function onConfirm() {
+  async function onConfirm() {
     setError(null);
 
+    if (submitting) return;
+
     if (name.trim().length < 2) return setError("Pon tu nombre (mínimo 2 letras).");
+    if (!email.trim().includes("@")) return setError("Pon un email válido.");
     if (phone.trim().length < 6) return setError("Pon un teléfono válido.");
 
-    // Si es PROGRAMADA, obligamos a día+franja y descontamos cupo
-    if (oferta.cadencia === "PROGRAMADA") {
-      if (!day) return setError("Falta el día. Vuelve atrás y elige día.");
-      if (!windowId || !selectedWindow) return setError("Falta la franja. Vuelve atrás y elige franja.");
+    setSubmitting(true);
 
-      const res = reserveOne(oferta.id, day, windowId, selectedWindow.capacity);
-      if (!res.ok) return setError("Esa franja está agotada. Elige otra.");
+    try {
+      const res = await fetch(`${apiBase}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          menuId: apiOffer!.id,
+          customerName: name.trim(),
+          customerEmail: email.trim().toLowerCase(),
+          // Nota: por ahora la API no guarda phone/notes. Lo añadimos luego.
+        }),
+      });
+
+      const json = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        const msg = json?.message || json?.error || "No se pudo crear el pedido.";
+        setError(String(msg));
+        return;
+      }
+
+      const orderId = pickOrderId(json);
+      if (!orderId) {
+        setError("Pedido creado, pero falta el id en la respuesta. Revisa /api/orders.");
+        return;
+      }
+
+      router.push(`/ticket/${orderId}`);
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Error creando el pedido.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const extraParts = [
-      `Recogida: ${recogidaLabel} · ${oferta.pickupAddress}`,
-      day ? `Día: ${day}` : null,
-      selectedWindow ? `Franja: ${selectedWindow.label} ${selectedWindow.start}–${selectedWindow.end}` : null,
-    ].filter(Boolean);
-
-    const extra = extraParts.join(" | ");
-
-    const order = createOrder({
-      restaurantId: oferta.restaurantId,
-      restaurantName: oferta.restaurantName,
-      customer: {
-        name: name.trim(),
-        phone: phone.trim(),
-        address: oferta.pickupAddress,
-        notes: [notes.trim(), extra].filter(Boolean).join(" | ") || undefined,
-      },
-      items: [
-        {
-          itemId: `oferta:${oferta.id}`,
-          name: lineName,
-          qty: lineQty,
-          priceCents: oferta.priceCents,
-        },
-      ],
-      subtotalCents,
-    });
-
-    router.push(`/order/${order.id}`);
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
       <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href={`/ofertas/${oferta.id}`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50">
+          <Link
+            href={`/offers/${apiOffer.id}`}
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+          >
             ← Volver
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Link href="/orders" className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50">
-              Mis pedidos
-            </Link>
-          </div>
+          <Link
+            href="/orders"
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
+          >
+            Mis pedidos
+          </Link>
         </div>
       </header>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-4 py-10 lg:grid-cols-[1fr_380px]">
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Confirmar</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            {oferta.restaurantName} · {recogidaLabel}
-            {day ? ` · Día ${day}` : ""}
-            {selectedWindow ? ` · ${selectedWindow.label} ${selectedWindow.start}–${selectedWindow.end}` : ""}
-          </p>
+          <p className="mt-2 text-sm text-zinc-600">{headerText}</p>
 
           <div className="mt-6 grid gap-4">
             <div>
@@ -134,12 +198,24 @@ export default function CheckoutOfertaPage() {
             </div>
 
             <div>
+              <label className="text-sm font-medium">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
+                placeholder="tu@email.com"
+                inputMode="email"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium">Teléfono</label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-                placeholder="600 123 123"
+                placeholder="6xx xxx xxx"
+                inputMode="tel"
               />
             </div>
 
@@ -149,58 +225,43 @@ export default function CheckoutOfertaPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-zinc-200"
-                placeholder="Ej: llegaré 10 min tarde, sin gluten si es posible…"
-                rows={4}
+                rows={3}
+                placeholder="Ej.: llego en 10 min…"
               />
             </div>
 
-            {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 {error}
               </div>
-            )}
+            ) : null}
 
             <button
               onClick={onConfirm}
-              className="rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
+              disabled={submitting}
+              className="mt-2 rounded-2xl bg-amber-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
             >
-              Confirmar y generar ticket
+              {submitting ? "Creando pedido…" : "Confirmar reserva"}
             </button>
           </div>
         </div>
 
-        <aside className="lg:sticky lg:top-20 lg:h-fit">
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold">Resumen</h2>
+        <aside className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+          <div className="text-sm font-semibold text-zinc-900">Resumen</div>
 
-            <div className="mt-4 text-sm">
-              <div className="font-semibold">{lineName}</div>
-              <div className="mt-1 text-xs text-zinc-500">
-                {oferta.tipo === "PACK" ? `${lineQty} unidad(es)` : `Mesa para ${pax} personas`}
-              </div>
-              {day && <div className="mt-1 text-xs text-zinc-500">Día: {day}</div>}
-              {selectedWindow && (
-                <div className="mt-1 text-xs text-zinc-500">
-                  Franja: {selectedWindow.label} {selectedWindow.start}–{selectedWindow.end}
-                </div>
-              )}
+          <div className="mt-3 text-sm text-zinc-700">{apiOffer.title}</div>
+          <div className="mt-1 text-xs text-zinc-500">{apiOffer.description}</div>
+
+          <div className="mt-4 flex items-end justify-between">
+            <div className="text-xs text-zinc-500">Total</div>
+            <div className="text-2xl font-semibold text-zinc-900">
+              {formatEurosFromCents(apiOffer.priceCents)}
             </div>
-
-            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-              <div className="text-xs text-zinc-500">Precio</div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <div className="text-xl font-semibold">{formatEuros(subtotalCents)}</div>
-                {oferta.originalPriceCents > 0 && (
-                  <div className="text-sm text-zinc-500 line-through">{formatEuros(oferta.originalPriceCents)}</div>
-                )}
-                {pct > 0 && <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">-{pct}%</span>}
-              </div>
-            </div>
-
-            <p className="mt-3 text-xs text-zinc-500">
-              (MVP) Cupos por franja se guardan en este navegador. Luego lo haremos global con DB.
-            </p>
           </div>
+
+          <p className="mt-3 text-xs text-zinc-600">
+            Pedido real: se crea en API/DB y el restaurante podrá validarlo por código.
+          </p>
         </aside>
       </section>
     </main>

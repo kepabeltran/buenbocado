@@ -89,13 +89,13 @@ export default function OrdersPage() {
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link
-                      href={`/order/${o.id}`}
+                      href={`/ticket/${o.id}`}
                       className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
                     >
                       Ver ticket
                     </Link>
                     <Link
-                      href={`/pickup/${o.id}`}
+                      href={`/ticket/${o.id}#codigo`}
                       className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50"
                     >
                       Código
