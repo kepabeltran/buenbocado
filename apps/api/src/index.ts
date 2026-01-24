@@ -1,7 +1,11 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
-import { PrismaClient, MenuType, OrderStatus } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+
+type MenuType = string;
+type OrderStatus = string;
+
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -135,10 +139,10 @@ app.get("/api/menus/active", async (req: any) => {
     take: 50,
   });
 
-    const data = items.map((m) => menuToDto(m, now, userLat, userLng));
+    const data = items.map((m: any) => menuToDto(m, now, userLat, userLng));
 
   if (userLat !== null && userLng !== null) {
-    data.sort((a, b) => {
+    data.sort((a: any, b: any) => {
       const ad = typeof a.distanceKm === "number" ? a.distanceKm : Number.POSITIVE_INFINITY;
       const bd = typeof b.distanceKm === "number" ? b.distanceKm : Number.POSITIVE_INFINITY;
       return ad - bd;
@@ -255,7 +259,7 @@ async function createMenuHandler(body: CreateMenuBody, reply: any) {
   const created = await prisma.menu.create({
     data: {
       restaurantId,
-      type: body.type as MenuType,
+      type: (body.type === "TAKEAWAY" || body.type === "DINEIN") ? body.type : "TAKEAWAY",
       title: body.title.trim(),
       description: body.description?.trim() ?? "",
       priceCents: Math.round(body.priceCents),
@@ -365,7 +369,7 @@ app.post("/api/orders", async (req: any, reply: any) => {
   const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
 
   try {
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       // Decremento seguro: solo si hay stock
       const dec = await tx.menu.updateMany({
         where: { id: menuId, quantity: { gt: 0 } },
@@ -545,7 +549,7 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
     });
   }
 
-  if (order.status === OrderStatus.DELIVERED) {
+  if (order.status === "DELIVERED") {
     return {
       ok: true,
       alreadyDelivered: true,
@@ -561,7 +565,7 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
 
   const updated = await prisma.order.update({
     where: { id: order.id },
-    data: { status: OrderStatus.DELIVERED },
+    data: { status: "DELIVERED" },
   });
 
   return {
@@ -595,7 +599,7 @@ app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) =
     });
   }
 
-  if (order.status === OrderStatus.DELIVERED) {
+  if (order.status === "DELIVERED") {
     return {
       ok: true,
       alreadyDelivered: true,
@@ -614,7 +618,7 @@ app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) =
 
   const updated = await prisma.order.update({
     where: { id: order.id },
-    data: { status: OrderStatus.DELIVERED },
+    data: { status: "DELIVERED" },
   });
 
   return {
