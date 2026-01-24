@@ -18,3 +18,9 @@ pnpm-lock.yaml
 # Backups locales
 *.bak_*
 
+
+# Local backups / encoding reports
+_backup_encoding_*/
+backup_fffd_*/
+encoding_*.txt
+fffd_*.txt

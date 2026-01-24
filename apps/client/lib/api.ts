@@ -62,7 +62,10 @@ export async function fetchMenu(id: string, opts?: FetchOpts): Promise<MenuSumma
   return (j.data ?? j) as MenuSummary;
 }
 
-export async function createOrder(opts?: FetchOpts) {
+export async function createOrder(
+  input: { menuId: string; customerName: string; customerEmail: string },
+  opts?: FetchOpts
+) {
   const base = getBase();
   const timeoutMs = opts?.timeoutMs ?? 1800;
 
@@ -70,14 +73,25 @@ export async function createOrder(opts?: FetchOpts) {
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${base}/orders`, {
+    const res = await fetch(`${base}/api/orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      signal: controller.signal
+      body: JSON.stringify(input),
+      signal: controller.signal,
     });
-    if (!res.ok) throw new Error("No se pudo crear el pedido");
-    return res.json() as Promise<{ orderId: string; code: string }>;
+
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok) {
+      const msg = json?.message || json?.error || "No se pudo crear la reserva";
+      throw new Error(msg);
+    }
+
+    // Devuelve la respuesta del API tal cual (tiene order.id y order.code)
+    return json as Promise<{
+      ok: true;
+      order: { id: string; status: string; code: string; menuId: string; createdAt: string };
+      menu?: { id: string; title: string; restaurant: string; priceCents: number; currency: string };
+    }>;
   } finally {
     clearTimeout(t);
   }
@@ -85,12 +99,34 @@ export async function createOrder(opts?: FetchOpts) {
 
 export async function fetchTicket(orderId: string, opts?: FetchOpts) {
   const base = getBase();
-  const j = await fetchJson(`${base}/orders/${orderId}`, opts);
-  return j as Promise<{
+  const j = await fetchJson(`${base}/api/orders/${orderId}`, opts);
+
+  // API devuelve: { ok:true, order:{...}, menu:{...}, restaurant:{...} }
+  const restaurantName =
+    j?.restaurant?.name ?? j?.menu?.restaurant ?? "Restaurante";
+  const restaurantAddress = j?.restaurant?.address ?? "";
+  const pickup = [restaurantName, restaurantAddress].filter(Boolean).join(" · ");
+
+  const code = String(j?.order?.code ?? "");
+  const status = String(j?.order?.status ?? "");
+
+  // Instrucciones mínimas (luego las refinamos cuando definamos UX final)
+  const instructions =
+    restaurantAddress
+      ? "Enseña este código en el local para recoger tu pedido."
+      : "Enseña este código en el local para recoger tu pedido.";
+
+  return {
+    id: String(j?.order?.id ?? orderId),
+    status,
+    code,
+    pickup,
+    instructions,
+  } as {
     id: string;
     status: string;
     code: string;
     pickup: string;
     instructions: string;
-  }>;
+  };
 }

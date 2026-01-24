@@ -204,7 +204,7 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Link
-                          href={`/order/${o.id}`}
+                          href={`/ticket/${o.id}`}
                           className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
                         >
                           Ver ticket

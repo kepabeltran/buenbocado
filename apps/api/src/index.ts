@@ -1,7 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
-import fastifyStatic from "@fastify/static";
 import { PrismaClient, MenuType, OrderStatus } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
@@ -60,13 +59,13 @@ const uploadsDir = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Servir /uploads/...
-await app.register(fastifyStatic, {
+const fastifyStaticMod: any = await import("@fastify/static");
+const fastifyStaticPlugin: any = fastifyStaticMod?.default ?? fastifyStaticMod;
+await app.register(fastifyStaticPlugin, {
   root: uploadsDir,
   prefix: "/uploads/",
-});
-
-if (!process.env.DATABASE_URL) {
-  app.log.error("DATABASE_URL no está definida. Revisa tu .env en el root del repo.");
+});if (!process.env.DATABASE_URL) {
+  app.log.error("DATABASE_URL no est?f?'?,? definida. Revisa tu .env en el root del repo.");
 }
 
 const prisma = new PrismaClient();
@@ -118,7 +117,7 @@ function menuToDto(menu: any, now: Date, userLat: number | null, userLng: number
 app.get("/health", async () => ({ status: "ok" }));
 app.get("/api/health", async () => ({ status: "ok" }));
 
-// Menús activos reales desde BD
+// Men?f?'?,?s activos reales desde BD
 app.get("/api/menus/active", async (req: any) => {
   const userLat = parseOptionalFloat((req.query as any)?.lat);
   const userLng = parseOptionalFloat((req.query as any)?.lng);
@@ -158,7 +157,12 @@ app.get<{ Params: { id: string } }>("/api/menus/:id", async (request, reply) => 
   });
 
   if (!item) return reply.code(404).send({ error: "Menu not found" });
-  return { data: menuToDto(item, now) };
+    const q = (request.query ?? {}) as any;
+  const latRaw = Number(q.lat);
+  const lngRaw = Number(q.lng);
+  const lat = Number.isFinite(latRaw) ? latRaw : (item as any).restaurant?.lat;
+  const lng = Number.isFinite(lngRaw) ? lngRaw : (item as any).restaurant?.lng;
+  return { data: menuToDto(item, now, lat, lng) };
 });
 
 // Upload endpoint (MVP)
@@ -218,13 +222,13 @@ async function createMenuHandler(body: CreateMenuBody, reply: any) {
     return reply.code(400).send({ error: "type debe ser TAKEAWAY o DINEIN" });
   }
   if (!body?.title || body.title.trim().length < 3) {
-    return reply.code(400).send({ error: "title es obligatorio (mín 3 caracteres)" });
+    return reply.code(400).send({ error: "title es obligatorio (m?f?'?,n 3 caracteres)" });
   }
   if (!Number.isFinite(body.priceCents) || body.priceCents <= 0) {
-    return reply.code(400).send({ error: "priceCents debe ser número > 0" });
+    return reply.code(400).send({ error: "priceCents debe ser n?f?'?,?mero > 0" });
   }
   if (!Number.isFinite(body.quantity) || body.quantity <= 0) {
-    return reply.code(400).send({ error: "quantity debe ser número > 0" });
+    return reply.code(400).send({ error: "quantity debe ser n?f?'?,?mero > 0" });
   }
 
   let restaurantId = body.restaurantId;
@@ -335,8 +339,7 @@ app.post("/api/orders", async (req: any, reply: any) => {
       error: "BAD_REQUEST",
       message: "menuId, customerName y customerEmail son obligatorios",
     });
-  }
-
+}
   const now = new Date();
 
   // Validar que el menu sigue activo y con stock > 0
@@ -354,7 +357,7 @@ app.post("/api/orders", async (req: any, reply: any) => {
   if (!menu) {
     return reply.code(404).send({
       error: "MENU_NOT_FOUND_OR_INACTIVE",
-      message: "La oferta no existe, no está activa o no tiene stock",
+      message: "La oferta no existe, no est? activa o no tiene stock",
     });
   }
 
@@ -405,7 +408,7 @@ app.post("/api/orders", async (req: any, reply: any) => {
     if (String(e?.message ?? "").includes("OUT_OF_STOCK")) {
       return reply.code(409).send({
         error: "OUT_OF_STOCK",
-        message: "Sin stock (alguien reservó justo antes)",
+        message: "Sin stock (alguien reserv? justo antes)",
       });
     }
 
@@ -419,7 +422,7 @@ app.post("/api/orders", async (req: any, reply: any) => {
 
 //
 // --- Restaurant Orders (MVP) ---
-// Sin auth todavía: sirve para portal restaurante mientras montamos roles.
+// Sin auth todav?f?'?,a: sirve para portal restaurante mientras montamos roles.
 // Opcional: filtrar por ?restaurantId=... y limitar con ?take=...
 //
 app.get("/api/restaurant/orders", async (req: any) => {
@@ -431,7 +434,7 @@ app.get("/api/restaurant/orders", async (req: any) => {
 
   const where: any = {};
   if (restaurantId) {
-    // filtra por restaurante via relación menu -> restaurantId
+    // filtra por restaurante via relaci?f?'?,?n menu -> restaurantId
     where.menu = { restaurantId };
   }
 
@@ -471,6 +474,102 @@ app.get("/api/restaurant/orders", async (req: any) => {
   return { ok: true, data };
 });
 
+
+app.get("/api/orders/:id", async (req: any, reply: any) => {
+  const id = String((req.params as any)?.id ?? "").trim();
+  if (!id) {
+    return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "id es obligatorio" });
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { menu: { include: { restaurant: true } } },
+  });
+
+  if (!order) {
+    return reply.code(404).send({ ok: false, error: "NOT_FOUND", message: "Pedido no encontrado" });
+  }
+
+  return {
+    ok: true,
+    order: { id: order.id, status: order.status, code: order.code, menuId: order.menuId, createdAt: order.createdAt },
+    menu: order.menu
+      ? {
+          id: order.menu.id,
+          title: order.menu.title,
+          type: order.menu.type,
+          priceCents: order.menu.priceCents,
+          currency: order.menu.currency ?? "EUR",
+          description: order.menu.description,
+        }
+      : null,
+    restaurant: order.menu?.restaurant
+      ? {
+          id: order.menu.restaurant.id,
+          name: order.menu.restaurant.name,
+          address: order.menu.restaurant.address,
+          lat: order.menu.restaurant.lat,
+          lng: order.menu.restaurant.lng,
+        }
+      : null,
+  };
+});
+
+  
+
+  
+// --- Restaurant Orders (MVP) ---
+// Marcar entregado POR RESTAURANTE (seguro)
+app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any, reply: any) => {
+  const restaurantId = String((req.params as any)?.restaurantId ?? "").trim();
+  const body = (req.body ?? {}) as any;
+  const code = String(body.code ?? "").trim();
+
+  if (!restaurantId) {
+    return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "restaurantId es obligatorio" });
+  }
+  if (!code) {
+    return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "code es obligatorio" });
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { code, menu: { restaurantId } },
+    include: { menu: { include: { restaurant: true } } },
+  });
+
+  if (!order) {
+    return reply.code(404).send({
+      ok: false,
+      error: "NOT_FOUND",
+      message: "Pedido no encontrado para este restaurante",
+    });
+  }
+
+  if (order.status === OrderStatus.DELIVERED) {
+    return {
+      ok: true,
+      alreadyDelivered: true,
+      order: { id: order.id, status: order.status, code: order.code },
+      restaurant: order.menu?.restaurant ? { id: order.menu.restaurant.id, name: order.menu.restaurant.name } : null,
+    };
+  }
+
+  // Modo estricto (solo desde READY) -> si lo quieres, descomenta:
+  // if (order.status !== OrderStatus.READY) {
+  //   return reply.code(409).send({ ok: false, error: "NOT_READY", message: "El pedido a?n no est? LISTO" });
+  // }
+
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: { status: OrderStatus.DELIVERED },
+  });
+
+  return {
+    ok: true,
+    order: { id: updated.id, status: updated.status, code: updated.code },
+    restaurant: order.menu?.restaurant ? { id: order.menu.restaurant.id, name: order.menu.restaurant.name } : null,
+  };
+});
 app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) => {
   const body = (req.body ?? {}) as any;
   const code = String(body.code ?? "").trim();
@@ -509,7 +608,7 @@ app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) =
   //   return reply.code(409).send({
   //     ok: false,
   //     error: "NOT_READY",
-  //     message: "El pedido aún no está LISTO",
+  //     message: "El pedido a?n no est? LISTO",
   //   });
   // }
 

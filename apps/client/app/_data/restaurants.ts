@@ -1,4 +1,4 @@
-﻿export type Restaurant = {
+export type Restaurant = {
   id: string;
   name: string;
   tagline: string;
