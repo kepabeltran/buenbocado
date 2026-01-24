@@ -183,7 +183,7 @@ export default async function HomePage() {
                 Ver ofertas ahora
               </Link>
               <div className="mt-2 text-xs text-zinc-500">
-                Sin modo demo: si la API cae, verás "offline".
+                Sin modo demo: si la API cae, verás &quot;offline&quot;.
               </div>
             </div>
           </div>
