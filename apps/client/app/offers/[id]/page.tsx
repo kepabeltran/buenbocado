@@ -4,7 +4,7 @@ import { formatEuros } from "../../_data/restaurants";
 type ApiMenu = {
   id: string;
   restaurant: string;
-  type: "TAKEAWAY" | "DINE_IN";
+  type: "TAKEAWAY" | "DINEIN" | "DINE_IN";
   title: string;
   description?: string | null;
   priceCents: number;
@@ -22,6 +22,10 @@ function getApiBase(): string {
     "http://127.0.0.1:4000";
 
   return rawBase.replace(/\/api\/?$/, "");
+}
+
+function isDineIn(t: ApiMenu["type"]) {
+  return t === "DINEIN" || t === "DINE_IN";
 }
 
 async function getMenuById(id: string): Promise<ApiMenu | null> {
@@ -72,10 +76,27 @@ export default async function OfferDetailPage({ params }: { params: { id: string
       </Link>
 
       <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <div className="text-xs text-zinc-500">{menu.restaurant} · {menu.type}</div>
+        <div className="text-xs text-zinc-500">
+          {menu.restaurant} · {isDineIn(menu.type) ? "DINEIN" : "TAKEAWAY"}
+        </div>
+
         <h1 className="mt-2 text-2xl font-semibold">{menu.title}</h1>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        {menu.imageUrl ? (
+          <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+            <div className="relative aspect-[16/10] w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={menu.imageUrl}
+                alt={menu.title}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
             {formatEuros(menu.priceCents)}
           </span>
