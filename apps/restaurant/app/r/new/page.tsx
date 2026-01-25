@@ -26,7 +26,7 @@ function getApiBase() {
 function eurosToCents(input: string) {
   const cleaned = String(input ?? "")
     .trim()
-    .replace("€", "")
+    .replace(/\u20ac/g, "").replace("\u00e2\u201a\u00ac", "")
     .replace(/\s+/g, "")
     .replace(",", ".");
   const n = Number.parseFloat(cleaned);
@@ -68,13 +68,14 @@ export default function NewMenuPage() {
 
     try {
       const priceCents = eurosToCents(price);
+      if (!file) throw new Error("Selecciona una foto para publicar la oferta.");
       if (!title.trim() || title.trim().length < 3) throw new Error("Pon un título (mín. 3 caracteres).");
       if (!Number.isFinite(priceCents) || priceCents <= 0) throw new Error("Precio inválido.");
       if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("Cantidad inválida.");
 
       let imageUrl: string | undefined = undefined;
 
-      // 1) Subir imagen (opcional)
+      // 1) Subir imagen (obligatoria)
       if (file) {
         if (file.size > 5 * 1024 * 1024) throw new Error("La imagen supera 5MB (límite MVP).");
         if (!file.type.startsWith("image/")) throw new Error("Solo se permiten imágenes.");
@@ -192,7 +193,7 @@ export default function NewMenuPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-slate-700">Precio (€)</span>
+              <span className="text-sm font-semibold text-slate-700">Precio (\u20ac)</span>
               <input
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 placeholder="8,50"
