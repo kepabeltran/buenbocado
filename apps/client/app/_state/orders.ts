@@ -183,3 +183,79 @@ export function validatePickupCode(code: string, restaurantId?: string): { ok: b
   const updated = setOrderStatus(order.id, "DELIVERED");
   return { ok: true, message: "✅ Entrega confirmada. Pedido marcado como ENTREGADO.", order: updated ?? order };
 }
+
+/** Inserta/actualiza un pedido en localStorage con un id externo (ej: cmk... de Prisma) */
+export function upsertOrder(order: Order): Order {
+  const list = load();
+  const idx = list.findIndex((o) => o.id === order.id);
+
+  if (idx >= 0) list[idx] = { ...list[idx], ...order };
+  else list.unshift(order);
+
+  save(list);
+  return order;
+}
+
+function toStatus(raw: unknown): OrderStatus {
+  const s = String(raw ?? "").toUpperCase();
+  if (s === "CREATED" || s === "PREPARING" || s === "READY" || s === "DELIVERED") return s as OrderStatus;
+  return "CREATED";
+}
+
+export function upsertExternalOrder(input: {
+  orderId: string;
+  status?: unknown;
+  code?: unknown;
+  createdAt?: unknown;
+
+  restaurantName: string;
+  restaurantId?: string;
+
+  menuId: string;
+  menuTitle: string;
+  priceCents: number;
+
+  customerName: string;
+  customerPhone?: string;
+  notes?: string;
+}): Order | null {
+  const orderId = String(input.orderId ?? "").trim();
+  if (!orderId) return null;
+
+  const list = load();
+  const existingCodes = new Set(list.map((o) => o.pickupCode));
+
+  const codeRaw = String(input.code ?? "").trim();
+  const pickupCode = /^\d{6}$/.test(codeRaw) ? codeRaw : genPickupCode(existingCodes);
+
+  const createdAt =
+    typeof input.createdAt === "string" && input.createdAt
+      ? input.createdAt
+      : new Date().toISOString();
+
+  const order: Order = {
+    id: orderId,
+    createdAt,
+    restaurantId: String(input.restaurantId ?? "rest_api"),
+    restaurantName: String(input.restaurantName ?? "Restaurante"),
+    status: toStatus(input.status),
+    pickupCode,
+    items: [
+      {
+        itemId: String(input.menuId),
+        name: String(input.menuTitle),
+        qty: 1,
+        priceCents: Number(input.priceCents) || 0,
+      },
+    ],
+    subtotalCents: Number(input.priceCents) || 0,
+    customer: {
+      name: String(input.customerName ?? ""),
+      phone: String(input.customerPhone ?? ""),
+      address: "",
+      notes: typeof input.notes === "string" ? input.notes : undefined,
+    },
+  };
+
+  return upsertOrder(order);
+}

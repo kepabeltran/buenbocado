@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { upsertExternalOrder } from "@/app/_state/orders";
 
 type ApiMenu = {
   id: string;
@@ -153,6 +154,23 @@ export default function CheckoutOfertaPage() {
         return;
       }
 
+      // ✅ Guardar snapshot en localStorage para que aparezca en /orders (MVP)
+      try {
+        upsertExternalOrder({
+          orderId,
+          status: json?.order?.status,
+          code: json?.order?.code,
+          createdAt: json?.order?.createdAt,
+          restaurantName: json?.menu?.restaurant ?? apiOffer!.restaurant,
+          menuId: json?.menu?.id ?? apiOffer!.id,
+          menuTitle: json?.menu?.title ?? apiOffer!.title,
+          priceCents: json?.menu?.priceCents ?? apiOffer!.priceCents,
+          customerName: name.trim(),
+          customerPhone: phone.trim(),
+          notes: notes.trim() ? notes.trim() : undefined,
+        });
+      } catch {}
+
       router.push(`/ticket/${orderId}`);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Error creando el pedido.");
@@ -258,10 +276,6 @@ export default function CheckoutOfertaPage() {
               {formatEurosFromCents(apiOffer.priceCents)}
             </div>
           </div>
-
-          <p className="mt-3 text-xs text-zinc-600">
-            Pedido real: se crea en API/DB y el restaurante podrá validarlo por código.
-          </p>
         </aside>
       </section>
     </main>
