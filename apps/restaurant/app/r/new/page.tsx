@@ -265,7 +265,7 @@ export default function NewMenuPage() {
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-slate-500">
-                        Encadre recomendado (16:10)
+                        Encuadre recomendado (16:10)
                       </div>
                     )}
                   </div>
@@ -318,24 +318,6 @@ export default function NewMenuPage() {
                 Máx. 5MB. Se normaliza a JPG 16:10.
               </p>
             </label>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-sm font-semibold text-slate-700">Preview</p>
-              <div className="mt-2 aspect-[16/10] w-full overflow-hidden rounded-lg bg-slate-50">
-                {preview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={preview}
-                    alt="preview"
-                    className="h-full w-full object-cover object-center"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                    Sin imagen
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {error ? (
