@@ -129,7 +129,7 @@ export default async function OffersPage() {
                           <img
                             src={m.imageUrl as string}
                             alt={m.title}
-                            className="absolute inset-0 h-full w-full object-cover"
+                            className="absolute inset-0 h-full w-full object-cover object-center"
                             loading="lazy"
                           />
                           <div className="absolute inset-0 bg-black/10" />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@buenbocado/ui";
 
@@ -47,6 +47,8 @@ export default function NewMenuPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export default function NewMenuPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-slate-700">Precio (\u20ac)</span>
+              <span className="text-sm font-semibold text-slate-700">Precio (€)</span>
               <input
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 placeholder="8,50"
@@ -213,23 +215,61 @@ export default function NewMenuPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-sm font-semibold text-slate-700">Foto (opcional)</span>
-              <input
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                type="file"
-                accept="image/*"
-                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-              />
-              <p className="text-xs text-slate-500">Máx. 5MB. Se normaliza a JPG 16:10.</p>
-            </label>
+            <label className="space-y-1 block">
+  <span className="text-sm font-semibold text-slate-700">Foto</span>
+
+  <div className="flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99] disabled:opacity-60"
+      onClick={() => cameraInputRef.current?.click()}
+      disabled={busy}
+    >
+      Hacer foto
+    </button>
+
+    <button
+      type="button"
+      className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm active:scale-[0.99] disabled:opacity-60"
+      onClick={() => galleryInputRef.current?.click()}
+      disabled={busy}
+    >
+      Galería
+    </button>
+
+    <span className="max-w-[240px] truncate text-xs text-slate-500">
+      {file ? file.name : "Ninguna seleccionada"}
+    </span>
+  </div>
+
+  {/* Cámara */}
+  <input
+    ref={cameraInputRef}
+    className="hidden"
+    type="file"
+    accept="image/*"
+    capture="environment"
+    onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+  />
+
+  {/* Galería */}
+  <input
+    ref={galleryInputRef}
+    className="hidden"
+    type="file"
+    accept="image/*"
+    onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+  />
+
+  <p className="text-xs text-slate-500">Máx. 5MB. Se normaliza a JPG 16:10.</p>
+</label>
 
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-sm font-semibold text-slate-700">Preview</p>
               <div className="mt-2 aspect-[16/10] w-full overflow-hidden rounded-lg bg-slate-50">
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt="preview" className="h-full w-full object-cover" />
+                  <img src={preview} alt="preview" className="h-full w-full object-cover object-center" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
                     Sin imagen
