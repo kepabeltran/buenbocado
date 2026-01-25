@@ -49,7 +49,38 @@ loadEnvIfMissing();
 
 const app = Fastify({ logger: true });
 
-await app.register(cors, { origin: true });
+const isProd = process.env.NODE_ENV === "production";
+const rawCors = process.env.CORS_ORIGINS ?? "";
+const extraAllowed = rawCors
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const devDefaults = new Set([
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+]);
+
+const allowList = new Set(isProd ? extraAllowed : [...devDefaults, ...extraAllowed]);
+
+if (isProd && allowList.size === 0) {
+  app.log.error("CORS_ORIGINS is empty in production. Refusing to start for safety.");
+  process.exit(1);
+}
+
+await app.register(cors, {
+  origin: (origin, cb) => {
+    // Permite llamadas server-to-server / curl (sin Origin)
+    if (!origin) return cb(null, true);
+
+    if (allowList.has(origin)) return cb(null, true);
+
+    return cb(new Error("Not allowed by CORS"), false);
+  },
+  credentials: true,
+});
 
 // --- Uploads (MVP local) ---
 await app.register(multipart, {
