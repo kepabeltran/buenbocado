@@ -26,7 +26,8 @@ function getApiBase() {
 function eurosToCents(input: string) {
   const cleaned = String(input ?? "")
     .trim()
-    .replace(/\u20ac/g, "").replace("\u00e2\u201a\u00ac", "")
+    .replace(/\u20ac/g, "")
+    .replace("\u00e2\u201a\u00ac", "")
     .replace(/\s+/g, "")
     .replace(",", ".");
   const n = Number.parseFloat(cleaned);
@@ -70,17 +71,23 @@ export default function NewMenuPage() {
 
     try {
       const priceCents = eurosToCents(price);
-      if (!file) throw new Error("Selecciona una foto para publicar la oferta.");
-      if (!title.trim() || title.trim().length < 3) throw new Error("Pon un título (mín. 3 caracteres).");
-      if (!Number.isFinite(priceCents) || priceCents <= 0) throw new Error("Precio inválido.");
-      if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("Cantidad inválida.");
+      if (!file)
+        throw new Error("Selecciona una foto para publicar la oferta.");
+      if (!title.trim() || title.trim().length < 3)
+        throw new Error("Pon un título (mín. 3 caracteres).");
+      if (!Number.isFinite(priceCents) || priceCents <= 0)
+        throw new Error("Precio inválido.");
+      if (!Number.isFinite(quantity) || quantity <= 0)
+        throw new Error("Cantidad inválida.");
 
       let imageUrl: string | undefined = undefined;
 
       // 1) Subir imagen (obligatoria)
       if (file) {
-        if (file.size > 5 * 1024 * 1024) throw new Error("La imagen supera 5MB (límite MVP).");
-        if (!file.type.startsWith("image/")) throw new Error("Solo se permiten imágenes.");
+        if (file.size > 5 * 1024 * 1024)
+          throw new Error("La imagen supera 5MB (límite MVP).");
+        if (!file.type.startsWith("image/"))
+          throw new Error("Solo se permiten imágenes.");
 
         const fd = new FormData();
         fd.append("file", file);
@@ -90,9 +97,11 @@ export default function NewMenuPage() {
           body: fd,
         });
 
-        const upJson = await upRes.json().catch(() => ({} as any));
+        const upJson = await upRes.json().catch(() => ({}) as any);
         if (!upRes.ok || !upJson?.ok || !upJson?.url) {
-          const msg = upJson?.error ? `Upload: ${upJson.error}` : "No se pudo subir la imagen.";
+          const msg = upJson?.error
+            ? `Upload: ${upJson.error}`
+            : "No se pudo subir la imagen.";
           throw new Error(msg);
         }
 
@@ -117,7 +126,7 @@ export default function NewMenuPage() {
         body: JSON.stringify(payload),
       });
 
-      const j = await res.json().catch(() => ({} as any));
+      const j = await res.json().catch(() => ({}) as any);
       if (!res.ok || !j?.ok || !j?.id) {
         const msg = j?.error || j?.message || "No se pudo crear el menú.";
         throw new Error(msg);
@@ -161,7 +170,9 @@ export default function NewMenuPage() {
             </label>
 
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-slate-700">Cantidad</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Cantidad
+              </span>
               <input
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 type="number"
@@ -183,7 +194,9 @@ export default function NewMenuPage() {
           </label>
 
           <label className="space-y-1 block">
-            <span className="text-sm font-semibold text-slate-700">Descripción</span>
+            <span className="text-sm font-semibold text-slate-700">
+              Descripción
+            </span>
             <textarea
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
               rows={3}
@@ -195,7 +208,9 @@ export default function NewMenuPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-slate-700">Precio (€)</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Precio (€)
+              </span>
               <input
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 placeholder="8,50"
@@ -210,66 +225,110 @@ export default function NewMenuPage() {
                 checked={allowTimeAdjustment}
                 onChange={(e) => setAllowTimeAdjustment(e.target.checked)}
               />
-              <span className="text-sm text-slate-700">Permitir ajuste de hora</span>
+              <span className="text-sm text-slate-700">
+                Permitir ajuste de hora
+              </span>
             </label>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 block">
-  <span className="text-sm font-semibold text-slate-700">Foto</span>
+              <span className="text-sm font-semibold text-slate-700">Foto</span>
 
-  <div className="flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99] disabled:opacity-60"
-      onClick={() => cameraInputRef.current?.click()}
-      disabled={busy}
-    >
-      Hacer foto
-    </button>
+              <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-700">
+                  Mini guía (para que salga perfecta)
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-600">
+                  <li>Horizontal si puedes.</li>
+                  <li>
+                    El plato debe ocupar 70–80% del encuadre (ni lejos, ni
+                    cortado).
+                  </li>
+                  <li>Sin flash: mejor luz natural/neutral.</li>
+                  <li>Fondo limpio (sin tickets, manos, botellas raras).</li>
+                  <li>
+                    Deja un pequeño margen para que el recorte no se coma nada.
+                  </li>
+                </ul>
 
-    <button
-      type="button"
-      className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm active:scale-[0.99] disabled:opacity-60"
-      onClick={() => galleryInputRef.current?.click()}
-      disabled={busy}
-    >
-      Galería
-    </button>
+                <div className="mt-3">
+                  <div
+                    className="relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white"
+                    style={{ aspectRatio: "16 / 10" }}
+                  >
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt="Vista previa"
+                        className="absolute inset-0 h-full w-full object-cover object-center"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-slate-500">
+                        Encadre recomendado (16:10)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99] disabled:opacity-60"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={busy}
+                >
+                  Hacer foto
+                </button>
 
-    <span className="max-w-[240px] truncate text-xs text-slate-500">
-      {file ? file.name : "Ninguna seleccionada"}
-    </span>
-  </div>
+                <button
+                  type="button"
+                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 shadow-sm active:scale-[0.99] disabled:opacity-60"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={busy}
+                >
+                  Galería
+                </button>
 
-  {/* Cámara */}
-  <input
-    ref={cameraInputRef}
-    className="hidden"
-    type="file"
-    accept="image/*"
-    capture="environment"
-    onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-  />
+                <span className="max-w-[240px] truncate text-xs text-slate-500">
+                  {file ? file.name : "Ninguna seleccionada"}
+                </span>
+              </div>
 
-  {/* Galería */}
-  <input
-    ref={galleryInputRef}
-    className="hidden"
-    type="file"
-    accept="image/*"
-    onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-  />
+              {/* Cámara */}
+              <input
+                ref={cameraInputRef}
+                className="hidden"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              />
 
-  <p className="text-xs text-slate-500">Máx. 5MB. Se normaliza a JPG 16:10.</p>
-</label>
+              {/* Galería */}
+              <input
+                ref={galleryInputRef}
+                className="hidden"
+                type="file"
+                accept="image/*"
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              />
+
+              <p className="text-xs text-slate-500">
+                Máx. 5MB. Se normaliza a JPG 16:10.
+              </p>
+            </label>
 
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-sm font-semibold text-slate-700">Preview</p>
               <div className="mt-2 aspect-[16/10] w-full overflow-hidden rounded-lg bg-slate-50">
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt="preview" className="h-full w-full object-cover object-center" />
+                  <img
+                    src={preview}
+                    alt="preview"
+                    className="h-full w-full object-cover object-center"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
                     Sin imagen
