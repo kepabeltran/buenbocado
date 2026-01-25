@@ -1,0 +1,137 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: buenbocado-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      API_DOMAIN: ${API_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN}
+      RESTAURANT_DOMAIN: ${RESTAURANT_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - client
+      - restaurant
+    networks:
+      - bb_internal
+
+  postgres:
+    image: postgres:16
+    container_name: buenbocado-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bb_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: node:22-bookworm-slim
+    container_name: buenbocado-api-prod
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+    volumes:
+      - ./:/app
+      - api_uploads:/app/apps/api/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bb_internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: >
+      bash -lc "
+      corepack enable &&
+      corepack prepare pnpm@9.12.3 --activate &&
+      pnpm -v &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @buenbocado/db exec prisma migrate deploy &&
+      pnpm --filter @buenbocado/api build &&
+      pnpm --filter @buenbocado/api start
+      "
+
+  client:
+    image: node:22-bookworm-slim
+    container_name: buenbocado-client-prod
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    volumes:
+      - ./:/app
+    depends_on:
+      - api
+    networks:
+      - bb_internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: >
+      bash -lc "
+      corepack enable &&
+      corepack prepare pnpm@9.12.3 --activate &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @buenbocado/client build &&
+      pnpm --filter @buenbocado/client start
+      "
+
+  restaurant:
+    image: node:22-bookworm-slim
+    container_name: buenbocado-restaurant-prod
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    volumes:
+      - ./:/app
+    depends_on:
+      - api
+    networks:
+      - bb_internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: >
+      bash -lc "
+      corepack enable &&
+      corepack prepare pnpm@9.12.3 --activate &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @buenbocado/restaurant build &&
+      pnpm --filter @buenbocado/restaurant start
+      "
+
+networks:
+  bb_internal:
+    internal: true
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  api_uploads:
