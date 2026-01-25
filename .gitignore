@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 .next
 .dist
 dist
@@ -23,3 +23,9 @@ _backup_encoding_*/
 backup_fffd_*/
 encoding_*.txt
 fffd_*.txt
+
+# Runtime uploads (do not commit)
+apps/api/uploads/
+
+# Local zip bundles
+*.zip
