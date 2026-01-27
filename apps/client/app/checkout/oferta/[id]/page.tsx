@@ -26,11 +26,7 @@ function formatEurosFromCents(cents: number) {
 
 function pickOrderId(json: any): string | null {
   const id =
-    json?.order?.id ??
-    json?.data?.id ??
-    json?.id ??
-    json?.orderId ??
-    null;
+    json?.order?.id ?? json?.data?.id ?? json?.id ?? json?.orderId ?? null;
   return typeof id === "string" && id.trim() ? id : null;
 }
 
@@ -70,7 +66,7 @@ export default function CheckoutOfertaPage() {
         const json = await res.json();
 
         const found: ApiMenu | null = Array.isArray(json?.data)
-          ? json.data.find((m: ApiMenu) => m.id === id) ?? null
+          ? (json.data.find((m: ApiMenu) => m.id === id) ?? null)
           : null;
 
         if (!cancelled) setApiOffer(found);
@@ -122,7 +118,8 @@ export default function CheckoutOfertaPage() {
 
     if (submitting) return;
 
-    if (name.trim().length < 2) return setError("Pon tu nombre (mínimo 2 letras).");
+    if (name.trim().length < 2)
+      return setError("Pon tu nombre (mínimo 2 letras).");
     if (!email.trim().includes("@")) return setError("Pon un email válido.");
     if (phone.trim().length < 6) return setError("Pon un teléfono válido.");
 
@@ -140,17 +137,20 @@ export default function CheckoutOfertaPage() {
         }),
       });
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       if (!res.ok) {
-        const msg = json?.message || json?.error || "No se pudo crear el pedido.";
+        const msg =
+          json?.message || json?.error || "No se pudo crear el pedido.";
         setError(String(msg));
         return;
       }
 
       const orderId = pickOrderId(json);
       if (!orderId) {
-        setError("Pedido creado, pero falta el id en la respuesta. Revisa /api/orders.");
+        setError(
+          "Pedido creado, pero falta el id en la respuesta. Revisa /api/orders.",
+        );
         return;
       }
 
@@ -268,7 +268,9 @@ export default function CheckoutOfertaPage() {
           <div className="text-sm font-semibold text-zinc-900">Resumen</div>
 
           <div className="mt-3 text-sm text-zinc-700">{apiOffer.title}</div>
-          <div className="mt-1 text-xs text-zinc-500">{apiOffer.description}</div>
+          <div className="mt-1 text-xs text-zinc-500">
+            {apiOffer.description}
+          </div>
 
           <div className="mt-4 flex items-end justify-between">
             <div className="text-xs text-zinc-500">Total</div>

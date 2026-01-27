@@ -41,20 +41,28 @@ async function getMenuById(id: string): Promise<ApiMenu | null> {
   return payload.data.find((m) => m.id === id) ?? null;
 }
 
-export default async function OfferDetailPage({ params }: { params: { id: string } }) {
+export default async function OfferDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const menu = await getMenuById(params.id);
 
   if (!menu) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
+        <Link
+          href="/offers"
+          className="text-sm text-zinc-600 hover:text-zinc-900"
+        >
           ← Volver a ofertas
         </Link>
 
         <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
           <h1 className="text-xl font-semibold">Oferta no encontrada</h1>
           <p className="mt-2 text-sm text-zinc-600">
-            Puede que haya caducado o que el listado haya cambiado. Vuelve a ofertas y entra de nuevo.
+            Puede que haya caducado o que el listado haya cambiado. Vuelve a
+            ofertas y entra de nuevo.
           </p>
           <div className="mt-6">
             <Link
@@ -71,7 +79,10 @@ export default async function OfferDetailPage({ params }: { params: { id: string
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
+      <Link
+        href="/offers"
+        className="text-sm text-zinc-600 hover:text-zinc-900"
+      >
         ← Volver a ofertas
       </Link>
 

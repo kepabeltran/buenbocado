@@ -12,10 +12,12 @@ import {
 import { formatEuros } from "../../_data/restaurants";
 
 function pickFromNotes(notes?: string) {
-  if (!notes) return { day: null as string | null, window: null as string | null };
+  if (!notes)
+    return { day: null as string | null, window: null as string | null };
   const parts = notes.split("|").map((s) => s.trim());
   const day = parts.find((p) => p.toLowerCase().startsWith("día:")) ?? null;
-  const franja = parts.find((p) => p.toLowerCase().startsWith("franja:")) ?? null;
+  const franja =
+    parts.find((p) => p.toLowerCase().startsWith("franja:")) ?? null;
   return {
     day: day ? day.replace(/^Día:\s*/i, "") : null,
     window: franja ? franja.replace(/^Franja:\s*/i, "") : null,
@@ -30,14 +32,30 @@ function labelStatus(s: OrderStatus) {
   return s;
 }
 
-export default function RestaurantRidPage({ params }: { params: { rid: string } }) {
+export default function RestaurantRidPage({
+  params,
+}: {
+  params: { rid: string };
+}) {
   const rid = params.rid;
 
   const [orders, setOrders] = useState<Order[]>([]);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | "__ALL__">("__ALL__");
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "__ALL__">(
+    "__ALL__",
+  );
   const [code, setCode] = useState("");
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Gate mínimo (temporal): sin sesión -> /r/login
+  // - demo=1 permite entrar mientras montamos login real
+  // - más adelante: cookie/roles reales por restaurante
+  useEffect(() => {    const hasCookie = document.cookie
+      .split(";")
+      .some((c) => c.trim().startsWith("bb_rest=1"));
+    if (!hasCookie) {
+      window.location.href = "/r/login";
+    }
+  }, []);
   useEffect(() => {
     setOrders(listOrders());
   }, []);
@@ -57,7 +75,10 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
   function bump(orderId: string, next: OrderStatus) {
     setOrderStatus(orderId, next);
     refreshOrders();
-    setToast({ ok: true, msg: `✅ Estado actualizado a: ${labelStatus(next)}` });
+    setToast({
+      ok: true,
+      msg: `✅ Estado actualizado a: ${labelStatus(next)}`,
+    });
     setTimeout(() => setToast(null), 2200);
   }
 
@@ -116,7 +137,8 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
               <div>
                 <h1 className="text-xl font-semibold">Pedidos entrantes</h1>
                 <p className="mt-1 text-sm text-zinc-600">
-                  Vista fija del restaurante. <b>No puedes cambiar de restaurante aquí.</b>
+                  Vista fija del restaurante.{" "}
+                  <b>No puedes cambiar de restaurante aquí.</b>
                 </p>
               </div>
 
@@ -166,17 +188,28 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
                   const { day, window } = pickFromNotes(o.customer.notes);
 
                   return (
-                    <div key={o.id} className="rounded-3xl border border-zinc-200 bg-white p-5">
+                    <div
+                      key={o.id}
+                      className="rounded-3xl border border-zinc-200 bg-white p-5"
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-xs text-zinc-500">{dt.toLocaleString("es-ES")}</div>
-                          <div className="mt-1 text-base font-semibold">{o.restaurantName}</div>
-                          <div className="mt-1 text-xs text-zinc-500 font-mono">ID: {o.id}</div>
+                          <div className="text-xs text-zinc-500">
+                            {dt.toLocaleString("es-ES")}
+                          </div>
+                          <div className="mt-1 text-base font-semibold">
+                            {o.restaurantName}
+                          </div>
+                          <div className="mt-1 text-xs text-zinc-500 font-mono">
+                            ID: {o.id}
+                          </div>
                         </div>
 
                         <div className="text-right">
                           <div className="text-xs text-zinc-500">Código</div>
-                          <div className="font-mono text-2xl font-bold tracking-widest">{o.pickupCode}</div>
+                          <div className="font-mono text-2xl font-bold tracking-widest">
+                            {o.pickupCode}
+                          </div>
                           <div className="mt-1 inline-flex rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
                             {labelStatus(o.status)}
                           </div>
@@ -185,19 +218,39 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
 
                       <div className="mt-4 grid gap-3 md:grid-cols-2">
                         <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-                          <div className="text-xs font-semibold text-zinc-700">Cliente</div>
-                          <div className="mt-1">{o.customer.name} · {o.customer.phone}</div>
-                          {day && <div className="mt-1 text-xs text-zinc-600">Día: {day}</div>}
-                          {window && <div className="mt-1 text-xs text-zinc-600">Franja: {window}</div>}
+                          <div className="text-xs font-semibold text-zinc-700">
+                            Cliente
+                          </div>
+                          <div className="mt-1">
+                            {o.customer.name} · {o.customer.phone}
+                          </div>
+                          {day && (
+                            <div className="mt-1 text-xs text-zinc-600">
+                              Día: {day}
+                            </div>
+                          )}
+                          {window && (
+                            <div className="mt-1 text-xs text-zinc-600">
+                              Franja: {window}
+                            </div>
+                          )}
                         </div>
 
                         <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-                          <div className="text-xs font-semibold text-zinc-700">Resumen</div>
+                          <div className="text-xs font-semibold text-zinc-700">
+                            Resumen
+                          </div>
                           <div className="mt-1">
-                            {qty} items · <span className="font-semibold">{formatEuros(o.subtotalCents)}</span>
+                            {qty} items ·{" "}
+                            <span className="font-semibold">
+                              {formatEuros(o.subtotalCents)}
+                            </span>
                           </div>
                           <div className="mt-1 text-xs text-zinc-600">
-                            {o.items[0]?.name}{o.items.length > 1 ? ` +${o.items.length - 1} más` : ""}
+                            {o.items[0]?.name}
+                            {o.items.length > 1
+                              ? ` +${o.items.length - 1} más`
+                              : ""}
                           </div>
                         </div>
                       </div>
@@ -237,11 +290,14 @@ export default function RestaurantRidPage({ params }: { params: { rid: string } 
             <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-semibold">Validar recogida</h2>
               <p className="mt-2 text-sm text-zinc-600">
-                El cliente enseña el código. Tú lo metes aquí. Solo entrega si está <b>LISTO</b>.
+                El cliente enseña el código. Tú lo metes aquí. Solo entrega si
+                está <b>LISTO</b>.
               </p>
 
               <div className="mt-4">
-                <label className="text-sm font-medium">Código (6 dígitos)</label>
+                <label className="text-sm font-medium">
+                  Código (6 dígitos)
+                </label>
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}

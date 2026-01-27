@@ -46,7 +46,8 @@ export default function RestaurantPage({
                 {r.priceLevel ?? "$$"}
               </span>
               <span className="truncate">
-                {(r.neighborhood ? r.neighborhood + " · " : "") + (r.city ?? "")}
+                {(r.neighborhood ? r.neighborhood + " · " : "") +
+                  (r.city ?? "")}
               </span>
             </div>
 
@@ -61,12 +62,16 @@ export default function RestaurantPage({
         <div className="grid gap-5 p-6 md:grid-cols-3">
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-xs font-semibold text-zinc-500">Dirección</div>
-            <div className="mt-1 text-sm font-semibold text-zinc-900">{r.address ?? "—"}</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-900">
+              {r.address ?? "—"}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-xs font-semibold text-zinc-500">Horario</div>
-            <div className="mt-1 text-sm font-semibold text-zinc-900">{r.hours ?? "—"}</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-900">
+              {r.hours ?? "—"}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
@@ -82,9 +87,13 @@ export default function RestaurantPage({
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-zinc-900">Ofertas activas</h2>
+            <h2 className="text-xl font-semibold text-zinc-900">
+              Ofertas activas
+            </h2>
             <p className="mt-1 text-sm text-zinc-600">
-              {list.length ? "Elige una oferta para ver el detalle." : "Ahora mismo no hay ofertas activas."}
+              {list.length
+                ? "Elige una oferta para ver el detalle."
+                : "Ahora mismo no hay ofertas activas."}
             </p>
           </div>
           <Link
@@ -103,21 +112,32 @@ export default function RestaurantPage({
                 key={o.id}
                 href={`/offers/${o.id}`}
                 className={`block rounded-3xl border bg-white p-5 shadow-sm transition hover:-translate-y-[1px] hover:shadow-md ${
-                  highlighted ? "border-amber-400 ring-2 ring-amber-200" : "border-zinc-200"
+                  highlighted
+                    ? "border-amber-400 ring-2 ring-amber-200"
+                    : "border-zinc-200"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                      -{o.discountPct}% · {o.kind === "planned" ? "Excedente" : "Última hora"}
+                      -{o.discountPct}% ·{" "}
+                      {o.kind === "planned" ? "Excedente" : "Última hora"}
                     </div>
-                    <div className="mt-3 text-lg font-semibold text-zinc-900">{o.title}</div>
-                    <p className="mt-1 text-sm text-zinc-600">{o.description}</p>
+                    <div className="mt-3 text-lg font-semibold text-zinc-900">
+                      {o.title}
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      {o.description}
+                    </p>
                   </div>
 
                   <div className="shrink-0 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-right">
-                    <div className="text-sm font-semibold text-zinc-900">{euros(o.price)}</div>
-                    <div className="text-xs text-zinc-500 line-through">{euros(o.originalPrice)}</div>
+                    <div className="text-sm font-semibold text-zinc-900">
+                      {euros(o.price)}
+                    </div>
+                    <div className="text-xs text-zinc-500 line-through">
+                      {euros(o.originalPrice)}
+                    </div>
                   </div>
                 </div>
 

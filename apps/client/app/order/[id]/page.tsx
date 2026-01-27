@@ -69,11 +69,16 @@ export default function OrderPage() {
       setErr(null);
 
       try {
-        const res = await fetch(`${apiBase}/api/orders/${id}`, { cache: "no-store" });
+        const res = await fetch(`${apiBase}/api/orders/${id}`, {
+          cache: "no-store",
+        });
         const json = (await res.json().catch(() => ({}))) as ApiOrderResp;
 
         if (!res.ok || !json?.ok) {
-          const msg = (json as any)?.message || (json as any)?.error || "No se pudo cargar el pedido.";
+          const msg =
+            (json as any)?.message ||
+            (json as any)?.error ||
+            "No se pudo cargar el pedido.";
           if (!cancelled) setErr(String(msg));
           if (!cancelled) setData(null);
           return;
@@ -81,7 +86,8 @@ export default function OrderPage() {
 
         if (!cancelled) setData(json);
       } catch (e: any) {
-        if (!cancelled) setErr(e?.message ? String(e.message) : "Error cargando el pedido.");
+        if (!cancelled)
+          setErr(e?.message ? String(e.message) : "Error cargando el pedido.");
         if (!cancelled) setData(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -95,7 +101,8 @@ export default function OrderPage() {
   }, [id, apiBase]);
 
   const title = useMemo(() => {
-    const kind = data?.menu?.type === "TAKEAWAY" ? "Para llevar" : "En el local";
+    const kind =
+      data?.menu?.type === "TAKEAWAY" ? "Para llevar" : "En el local";
     const rest = data?.restaurant?.name ?? "Restaurante";
     return `${rest} · ${kind}`;
   }, [data]);
@@ -195,35 +202,58 @@ export default function OrderPage() {
           <p className="mt-2 text-sm text-zinc-600">{title}</p>
 
           <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6">
-            <div className="text-xs font-semibold tracking-wide text-amber-900/70">CÓDIGO DE RECOGIDA</div>
-            <div className="mt-2 text-4xl font-extrabold tracking-widest text-amber-900">{code}</div>
+            <div className="text-xs font-semibold tracking-wide text-amber-900/70">
+              CÓDIGO DE RECOGIDA
+            </div>
+            <div className="mt-2 text-4xl font-extrabold tracking-widest text-amber-900">
+              {code}
+            </div>
             <p className="mt-3 text-sm text-amber-900/80">
-              Enséñalo en el restaurante. Para marcar como entregado, el restaurante introducirá este código.
+              Enséñalo en el restaurante. Para marcar como entregado, el
+              restaurante introducirá este código.
             </p>
           </div>
 
           <div className="mt-6 grid gap-3">
             <div className="rounded-2xl border border-zinc-200 bg-white p-4">
               <div className="text-xs font-semibold text-zinc-500">Estado</div>
-              <div className="mt-1 text-base font-semibold">{statusLabel(data.order.status)}</div>
+              <div className="mt-1 text-base font-semibold">
+                {statusLabel(data.order.status)}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <div className="text-xs font-semibold text-zinc-500">Restaurante</div>
-              <div className="mt-1 text-base font-semibold">{rest?.name ?? "—"}</div>
-              {rest?.address ? <div className="mt-1 text-sm text-zinc-600">{rest.address}</div> : null}
+              <div className="text-xs font-semibold text-zinc-500">
+                Restaurante
+              </div>
+              <div className="mt-1 text-base font-semibold">
+                {rest?.name ?? "—"}
+              </div>
+              {rest?.address ? (
+                <div className="mt-1 text-sm text-zinc-600">{rest.address}</div>
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <div className="text-xs font-semibold text-zinc-500">Tu oferta</div>
-              <div className="mt-1 text-base font-semibold">{menu?.title ?? "—"}</div>
-              {menu?.description ? <div className="mt-1 text-sm text-zinc-600">{menu.description}</div> : null}
+              <div className="text-xs font-semibold text-zinc-500">
+                Tu oferta
+              </div>
+              <div className="mt-1 text-base font-semibold">
+                {menu?.title ?? "—"}
+              </div>
+              {menu?.description ? (
+                <div className="mt-1 text-sm text-zinc-600">
+                  {menu.description}
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-zinc-200 bg-white p-4">
               <div className="text-xs font-semibold text-zinc-500">Total</div>
               <div className="mt-1 text-2xl font-semibold">
-                {typeof menu?.priceCents === "number" ? formatEurosFromCents(menu.priceCents) : "—"}
+                {typeof menu?.priceCents === "number"
+                  ? formatEurosFromCents(menu.priceCents)
+                  : "—"}
               </div>
             </div>
           </div>
@@ -246,15 +276,21 @@ export default function OrderPage() {
         </div>
 
         <aside className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
-          <div className="text-sm font-semibold text-zinc-900">Instrucciones</div>
+          <div className="text-sm font-semibold text-zinc-900">
+            Instrucciones
+          </div>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-zinc-700">
             <li>Ve al restaurante y muestra el código.</li>
             <li>Si llegas tarde, puede caducar según la oferta.</li>
-            <li>El restaurante marcará el pedido como entregado introduciendo tu código.</li>
+            <li>
+              El restaurante marcará el pedido como entregado introduciendo tu
+              código.
+            </li>
           </ul>
 
           <p className="mt-4 text-xs text-zinc-500">
-            Nota MVP: phone/notes aún no se guardan en la API. Eso lo añadimos después.
+            Nota MVP: phone/notes aún no se guardan en la API. Eso lo añadimos
+            después.
           </p>
         </aside>
       </section>

@@ -3,7 +3,7 @@ import { Button, Card, Chip } from "@buenbocado/ui";
 import { fetchMenu } from "@/lib/api";
 
 export default async function MenuDetailPage({
-  params
+  params,
 }: {
   params: { id: string };
 }) {
@@ -16,7 +16,9 @@ export default async function MenuDetailPage({
       </Link>
       <Card className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Chip>{menu.type === "TAKEAWAY" ? "Para llevar" : "En el local"}</Chip>
+          <Chip>
+            {menu.type === "TAKEAWAY" ? "Para llevar" : "En el local"}
+          </Chip>
           {menu.badge ? <Chip>{menu.badge}</Chip> : null}
         </div>
         <div>

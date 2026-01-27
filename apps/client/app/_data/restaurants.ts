@@ -58,5 +58,8 @@ export function getRestaurantById(id: string) {
 
 export function formatEuros(cents: number) {
   const eur = cents / 100;
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(eur);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+  }).format(eur);
 }

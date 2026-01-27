@@ -21,45 +21,126 @@ enum OrderStatus {
   NOSHOW
 }
 
-model Restaurant {
-  id        String   @id @default(cuid())
-  name      String
-  address   String
-  lat       Float
-  lng       Float
-  zoneTag   String
-  createdAt DateTime @default(now())
+enum RestaurantUserRole {
+  OWNER
+  MANAGER
+  STAFF
+}
 
-  menus Menu[]
+model Restaurant {
+  id            String   @id @default(cuid())
+  name          String
+  /// Para rutas tipo /r/buen-bocado (se rellena desde admin más adelante)
+  slug          String?  @unique
+  address       String
+  /// Teléfono público del restaurante (se muestra en la ficha)
+  phone         String?
+  lat           Float
+  lng           Float
+  zoneTag       String
+
+  /// Comisión por restaurante en basis points (ej: 1200 = 12%). Admin la ajustará.
+  commissionBps Int      @default(0)
+
+  /// Personas de contacto (una por línea). Ej: "Ana · gerente · +34 600 000 000 · ana@restaurante.com"
+  contactPeople String?
+
+  logoUrl       String?
+  coverUrl      String?
+  /// Configuración de liquidaciones (editable desde Admin)
+  settlementMode     SettlementMode @default(WEEKLY_CALENDAR)
+  /// 1=Lunes ... 7=Domingo
+  settlementWeekday  Int            @default(1)
+  /// Zona horaria para cortes/fechas de liquidación
+  settlementTimezone String         @default("Europe/Madrid")
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  menus         Menu[]
+  users         RestaurantUser[]
+
+  @@index([isActive])
+  @@index([zoneTag])
+}
+
+model RestaurantUser {
+  id           String             @id @default(cuid())
+  restaurantId String
+  email        String             @unique
+  passwordHash String
+  role         RestaurantUserRole @default(STAFF)
+  isActive     Boolean            @default(true)
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id])
+  deliveredOrders Order[]         @relation("DeliveredBy")
+
+  @@index([restaurantId])
+  @@index([isActive])
 }
 
 model Menu {
-  id                   String   @id @default(cuid())
-  restaurantId         String
-  type                 MenuType
-  title                String
-  description          String
-  priceCents           Int
-  currency             String
-  quantity             Int
-  availableFrom        DateTime
-  availableTo          DateTime
-  expiresAt            DateTime
-  allowTimeAdjustment  Boolean  @default(false)
-  createdAt            DateTime @default(now())
+  id                  String   @id @default(cuid())
+  restaurantId        String
+  type                MenuType
+  title               String
+  description         String
+  priceCents          Int
+  currency            String
+  quantity            Int
+  availableFrom       DateTime
+  availableTo         DateTime
+  expiresAt           DateTime
+  allowTimeAdjustment Boolean  @default(false)
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
-  orders     Order[]
+  /// Tu API ya lo usa (upload -> /uploads/...)
+  imageUrl            String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  restaurant          Restaurant @relation(fields: [restaurantId], references: [id])
+  orders              Order[]
+
+  @@index([restaurantId])
+  @@index([expiresAt])
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  menuId        String
-  status        OrderStatus @default(CREATED)
-  customerName  String
-  customerEmail String
-  code          String
-  createdAt     DateTime    @default(now())
+  id                    String      @id @default(cuid())
+  menuId                String
+  status                OrderStatus @default(CREATED)
+  customerName          String
+  customerEmail         String
+  code                  String
 
-  menu Menu @relation(fields: [menuId], references: [id])
+  /// Base para liquidaciones (congelamos importes/comisión)
+  totalCents            Int?
+  commissionBpsAtPurchase Int?
+  platformFeeCents      Int?
+
+  deliveredAt           DateTime?
+  deliveredByUserId     String?
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  menu                  Menu @relation(fields: [menuId], references: [id])
+  deliveredBy           RestaurantUser? @relation("DeliveredBy", fields: [deliveredByUserId], references: [id])
+
+  @@index([menuId])
+  @@index([status])
+  @@index([code])
+  @@index([createdAt])
+  @@index([deliveredAt])
+}
+
+enum SettlementMode {
+  WEEKLY_CALENDAR
+  ROLLING_7D
+  CUSTOM_RANGE
 }
