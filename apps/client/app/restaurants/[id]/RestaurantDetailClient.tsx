@@ -5,15 +5,20 @@ import { useMemo } from "react";
 import type { Restaurant } from "../../_data/restaurants";
 import { offers, euros } from "../../_data/offers";
 
-export default function RestaurantDetailClient({ restaurant }: { restaurant: Restaurant }) {
+export default function RestaurantDetailClient({
+  restaurant,
+}: {
+  restaurant: Restaurant;
+}) {
   const list = useMemo(
     () => offers.filter((o) => o.restaurantId === restaurant.id),
-    [restaurant.id]
+    [restaurant.id],
   );
 
   const zone =
-    (restaurant.neighborhood ? restaurant.neighborhood + (restaurant.city ? " · " : "") : "") +
-    (restaurant.city ?? "");
+    (restaurant.neighborhood
+      ? restaurant.neighborhood + (restaurant.city ? " · " : "")
+      : "") + (restaurant.city ?? "");
 
   return (
     <div className="space-y-6">
@@ -37,20 +42,28 @@ export default function RestaurantDetailClient({ restaurant }: { restaurant: Res
           </div>
 
           <div className="absolute bottom-5 left-5 right-5">
-            <h1 className="text-3xl font-black tracking-tight text-zinc-900">{restaurant.name}</h1>
-            <p className="mt-2 max-w-3xl text-sm text-zinc-700">{restaurant.tagline}</p>
+            <h1 className="text-3xl font-black tracking-tight text-zinc-900">
+              {restaurant.name}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-zinc-700">
+              {restaurant.tagline}
+            </p>
           </div>
         </div>
 
         <div className="grid gap-5 p-6 md:grid-cols-3">
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-xs font-semibold text-zinc-500">Dirección</div>
-            <div className="mt-1 text-sm font-semibold text-zinc-900">{restaurant.address ?? "—"}</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-900">
+              {restaurant.address ?? "—"}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
             <div className="text-xs font-semibold text-zinc-500">Horario</div>
-            <div className="mt-1 text-sm font-semibold text-zinc-900">{restaurant.hours ?? "—"}</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-900">
+              {restaurant.hours ?? "—"}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
@@ -65,9 +78,13 @@ export default function RestaurantDetailClient({ restaurant }: { restaurant: Res
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-zinc-900">Ofertas activas</h2>
+            <h2 className="text-xl font-semibold text-zinc-900">
+              Ofertas activas
+            </h2>
             <p className="mt-1 text-sm text-zinc-600">
-              {list.length ? "Elige una oferta para ver el detalle." : "Ahora mismo no hay ofertas activas."}
+              {list.length
+                ? "Elige una oferta para ver el detalle."
+                : "Ahora mismo no hay ofertas activas."}
             </p>
           </div>
 
@@ -97,15 +114,22 @@ export default function RestaurantDetailClient({ restaurant }: { restaurant: Res
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                    -{o.discountPct}% · {o.kind === "planned" ? "Excedente" : "Última hora"}
+                    -{o.discountPct}% ·{" "}
+                    {o.kind === "planned" ? "Excedente" : "Última hora"}
                   </div>
-                  <div className="mt-3 text-lg font-semibold text-zinc-900">{o.title}</div>
+                  <div className="mt-3 text-lg font-semibold text-zinc-900">
+                    {o.title}
+                  </div>
                   <p className="mt-1 text-sm text-zinc-600">{o.description}</p>
                 </div>
 
                 <div className="shrink-0 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-right">
-                  <div className="text-sm font-semibold text-zinc-900">{euros(o.price)}</div>
-                  <div className="text-xs text-zinc-500 line-through">{euros(o.originalPrice)}</div>
+                  <div className="text-sm font-semibold text-zinc-900">
+                    {euros(o.price)}
+                  </div>
+                  <div className="text-xs text-zinc-500 line-through">
+                    {euros(o.originalPrice)}
+                  </div>
                 </div>
               </div>
 

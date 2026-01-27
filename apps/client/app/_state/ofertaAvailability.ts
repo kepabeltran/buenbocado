@@ -25,7 +25,12 @@ export function makeCapKey(offerId: string, dayYMD: string, windowId: string) {
   return `${offerId}|${dayYMD}|${windowId}`;
 }
 
-export function getRemainingCapacity(offerId: string, dayYMD: string, windowId: string, baseCapacity: number): number {
+export function getRemainingCapacity(
+  offerId: string,
+  dayYMD: string,
+  windowId: string,
+  baseCapacity: number,
+): number {
   try {
     const map = load();
     const k = makeCapKey(offerId, dayYMD, windowId);
@@ -36,7 +41,12 @@ export function getRemainingCapacity(offerId: string, dayYMD: string, windowId: 
   }
 }
 
-export function reserveOne(offerId: string, dayYMD: string, windowId: string, baseCapacity: number): { ok: boolean; remaining: number } {
+export function reserveOne(
+  offerId: string,
+  dayYMD: string,
+  windowId: string,
+  baseCapacity: number,
+): { ok: boolean; remaining: number } {
   const map = load();
   const k = makeCapKey(offerId, dayYMD, windowId);
   const current = typeof map[k] === "number" ? map[k] : baseCapacity;

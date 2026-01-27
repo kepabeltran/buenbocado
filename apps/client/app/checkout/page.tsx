@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import CartPill from "../_components/CartPill";
 import { useCart } from "../_state/cart";
 import { createOrder } from "@/lib/api";
-import { getRestaurantById, restaurants, formatEuros } from "../_data/restaurants";
+import {
+  getRestaurantById,
+  restaurants,
+  formatEuros,
+} from "../_data/restaurants";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -19,26 +23,40 @@ export default function CheckoutPage() {
 
   const lineItems = useMemo(() => {
     if (!restaurant) return [];
-    const map = new Map(((restaurant as any).categories ?? []).flatMap((c: any) => (c?.items ?? []).map((it: any) => [it.id, it])));
+    const map = new Map(
+      ((restaurant as any).categories ?? []).flatMap((c: any) =>
+        (c?.items ?? []).map((it: any) => [it.id, it]),
+      ),
+    );
     return Object.entries(items)
       .filter(([k, qty]) => k.startsWith(`${restaurant.id}:`) && qty > 0)
       .map(([k, qty]) => {
         const itemId = k.split(":")[1];
         const it = map.get(itemId);
         if (!it) return null;
-        return { itemId, name: (it as any).name, qty, priceCents: (it as any).priceCents };
+        return {
+          itemId,
+          name: (it as any).name,
+          qty,
+          priceCents: (it as any).priceCents,
+        };
       })
-      .filter(Boolean) as { itemId: string; name: string; qty: number; priceCents: number }[];
+      .filter(Boolean) as {
+      itemId: string;
+      name: string;
+      qty: number;
+      priceCents: number;
+    }[];
   }, [items, restaurant]);
 
   const subtotalCents = useMemo(
     () => lineItems.reduce((acc, l) => acc + l.qty * l.priceCents, 0),
-    [lineItems]
+    [lineItems],
   );
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,12 +64,15 @@ const [phone, setPhone] = useState("");
   async function onConfirm() {
     setError(null);
 
-    if (!restaurant) return setError("No hay restaurante activo en el carrito.");
+    if (!restaurant)
+      return setError("No hay restaurante activo en el carrito.");
     if (lineItems.length === 0) return setError("Tu carrito está vacío.");
-    if (name.trim().length < 2) return setError("Pon tu nombre (mínimo 2 letras).");
+    if (name.trim().length < 2)
+      return setError("Pon tu nombre (mínimo 2 letras).");
 
     const emailClean = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) return setError("Pon un email válido.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean))
+      return setError("Pon un email válido.");
 
     if (phone.trim().length < 6) return setError("Pon un teléfono válido.");
     if (address.trim().length < 6) return setError("Pon una dirección válida.");
@@ -82,7 +103,9 @@ const [phone, setPhone] = useState("");
 
           <div className="flex items-center gap-2">
             <Link
-              href={restaurant ? `/restaurants/${restaurant.id}` : "/restaurants"}
+              href={
+                restaurant ? `/restaurants/${restaurant.id}` : "/restaurants"
+              }
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50"
             >
               ? Volver
@@ -96,7 +119,8 @@ const [phone, setPhone] = useState("");
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Checkout</h1>
           <p className="mt-2 text-sm text-zinc-600">
-            (MVP) Esto guarda el pedido en localStorage. Luego lo conectamos a API + DB sin cambiar pantallas.
+            (MVP) Esto guarda el pedido en localStorage. Luego lo conectamos a
+            API + DB sin cambiar pantallas.
           </p>
 
           <div className="mt-6 grid gap-4">
@@ -173,26 +197,45 @@ const [phone, setPhone] = useState("");
 
             {!restaurant ? (
               <p className="mt-3 text-sm text-zinc-600">
-                No hay carrito activo. Ve a <Link className="underline" href="/restaurants">restaurantes</Link>.
+                No hay carrito activo. Ve a{" "}
+                <Link className="underline" href="/restaurants">
+                  restaurantes
+                </Link>
+                .
               </p>
             ) : lineItems.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-600">
-                Tu carrito está vacío. Vuelve a <Link className="underline" href={`/restaurants/${restaurant.id}`}>la carta</Link>.
+                Tu carrito está vacío. Vuelve a{" "}
+                <Link
+                  className="underline"
+                  href={`/restaurants/${restaurant.id}`}
+                >
+                  la carta
+                </Link>
+                .
               </p>
             ) : (
               <>
                 <div className="mt-3 text-sm text-zinc-600">
-                  Restaurante: <span className="font-semibold text-zinc-900">{restaurant.name}</span>
+                  Restaurante:{" "}
+                  <span className="font-semibold text-zinc-900">
+                    {restaurant.name}
+                  </span>
                 </div>
 
                 <div className="mt-4 space-y-3">
                   {lineItems.map((l) => (
-                    <div key={l.itemId} className="flex items-start justify-between gap-3">
+                    <div
+                      key={l.itemId}
+                      className="flex items-start justify-between gap-3"
+                    >
                       <div className="min-w-0">
                         <div className="text-sm font-medium">
                           {l.qty} · {l.name}
                         </div>
-                        <div className="text-xs text-zinc-500">{formatEuros(l.priceCents)}</div>
+                        <div className="text-xs text-zinc-500">
+                          {formatEuros(l.priceCents)}
+                        </div>
                       </div>
                       <div className="text-sm font-semibold">
                         {formatEuros(l.qty * l.priceCents)}
@@ -204,10 +247,13 @@ const [phone, setPhone] = useState("");
                 <div className="mt-5 border-t border-zinc-200 pt-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-zinc-600">Subtotal</div>
-                    <div className="text-base font-semibold">{formatEuros(subtotalCents)}</div>
+                    <div className="text-base font-semibold">
+                      {formatEuros(subtotalCents)}
+                    </div>
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
-                    (MVP) En el siguiente paso añadimos gastos/propina/cupones si quieres.
+                    (MVP) En el siguiente paso añadimos gastos/propina/cupones
+                    si quieres.
                   </p>
                 </div>
               </>
@@ -218,8 +264,3 @@ const [phone, setPhone] = useState("");
     </main>
   );
 }
-
-
-
-
-

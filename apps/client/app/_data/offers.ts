@@ -83,5 +83,8 @@ export const offers: Offer[] = [
 ];
 
 export function euros(n: number) {
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(n);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+  }).format(n);
 }

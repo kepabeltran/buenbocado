@@ -2,11 +2,11 @@ export type OfertaTipo = "PACK" | "MESA_FLASH";
 export type OfertaCadencia = "DROP" | "PROGRAMADA";
 
 export type PickupWindow = {
-  id: string;          // "lunch" | "dinner" ...
-  label: string;       // "Comida" | "Cena"
-  start: string;       // "13:00"
-  end: string;         // "15:30"
-  capacity: number;    // cupo por franja (MVP: por día en localStorage)
+  id: string; // "lunch" | "dinner" ...
+  label: string; // "Comida" | "Cena"
+  start: string; // "13:00"
+  end: string; // "15:30"
+  capacity: number; // cupo por franja (MVP: por día en localStorage)
 };
 
 export type Oferta = {
@@ -128,10 +128,24 @@ export const ofertas: Oferta[] = [
     originalPriceCents: 2200,
     priceCents: 1290,
     qtyAvailable: 999, // en programadas el control real será por franja
-    availableToISO: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    availableToISO: new Date(
+      Date.now() + 3 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
     pickupWindows: [
-      { id: "lunch", label: "Comida", start: "13:00", end: "15:30", capacity: 6 },
-      { id: "dinner", label: "Cena", start: "20:00", end: "22:00", capacity: 8 },
+      {
+        id: "lunch",
+        label: "Comida",
+        start: "13:00",
+        end: "15:30",
+        capacity: 6,
+      },
+      {
+        id: "dinner",
+        label: "Cena",
+        start: "20:00",
+        end: "22:00",
+        capacity: 8,
+      },
     ],
     tags: ["Programada", "Marisco", "-41%"],
   },
@@ -159,9 +173,11 @@ export function getOfertaById(id: string) {
   // 2) match por slug/alias (si existen)
   const bySlug = list.find((o) => {
     const slug =
-      typeof o.slug === "string" ? o.slug :
-      typeof o.alias === "string" ? o.alias :
-      "";
+      typeof o.slug === "string"
+        ? o.slug
+        : typeof o.alias === "string"
+          ? o.alias
+          : "";
     const s = String(slug ?? "")
       .trim()
       .toLowerCase()
@@ -185,11 +201,18 @@ export function getOfertaById(id: string) {
 
 export function formatEuros(cents: number) {
   const eur = cents / 100;
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(eur);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+  }).format(eur);
 }
 
 export function discountPct(oferta: Oferta) {
-  if (!oferta.originalPriceCents || oferta.originalPriceCents <= oferta.priceCents) return 0;
+  if (
+    !oferta.originalPriceCents ||
+    oferta.originalPriceCents <= oferta.priceCents
+  )
+    return 0;
   return Math.round((1 - oferta.priceCents / oferta.originalPriceCents) * 100);
 }
 
@@ -206,7 +229,9 @@ export function fmtCountdown(ms: number) {
 
 export function getTimes(oferta: Oferta, nowMs: number) {
   if (oferta.cadencia === "PROGRAMADA") {
-    const expiresAt = new Date(oferta.availableToISO ?? (Date.now() + 1000 * 60 * 60 * 24 * 365));
+    const expiresAt = new Date(
+      oferta.availableToISO ?? Date.now() + 1000 * 60 * 60 * 24 * 365,
+    );
     const pickupFrom = new Date(nowMs);
     const pickupTo = new Date(nowMs);
     return { expiresAt, pickupFrom, pickupTo };
@@ -219,12 +244,18 @@ export function getTimes(oferta: Oferta, nowMs: number) {
 }
 
 export function fmtDateLong(d: Date) {
-  return d.toLocaleDateString("es-ES", { weekday: "long", day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+  });
 }
 
 export function ofertaLabelCaduca(oferta: Oferta, nowMs: number) {
   if (oferta.cadencia === "PROGRAMADA") {
-    const until = new Date(oferta.availableToISO ?? (Date.now() + 1000 * 60 * 60 * 24 * 365));
+    const until = new Date(
+      oferta.availableToISO ?? Date.now() + 1000 * 60 * 60 * 24 * 365,
+    );
     return `Hasta ${fmtDateLong(until)}`;
   }
   const { expiresAt } = getTimes(oferta, nowMs);

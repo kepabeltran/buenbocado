@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+} from "react";
 
 type CartState = {
   restaurantId: string | null;
@@ -41,7 +47,10 @@ function reducer(state: CartState, action: Action): CartState {
       const k = keyOf(restaurantId, itemId);
       const next = Math.max(0, (base.items[k] ?? 0) + qty);
 
-      return { restaurantId: base.restaurantId, items: { ...base.items, [k]: next } };
+      return {
+        restaurantId: base.restaurantId,
+        items: { ...base.items, [k]: next },
+      };
     }
 
     case "REMOVE": {
@@ -83,7 +92,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (parsed && typeof parsed === "object" && parsed.items) {
         dispatch({
           type: "HYDRATE",
-          payload: { restaurantId: parsed.restaurantId ?? null, items: parsed.items ?? {} },
+          payload: {
+            restaurantId: parsed.restaurantId ?? null,
+            items: parsed.items ?? {},
+          },
         });
       }
     } catch {}
@@ -98,7 +110,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const count = useMemo(
     () => Object.values(state.items).reduce((a, n) => a + (n || 0), 0),
-    [state.items]
+    [state.items],
   );
 
   const api: CartApi = useMemo(
@@ -114,7 +126,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "REMOVE", restaurantId, itemId, qty }),
       clear: () => dispatch({ type: "CLEAR" }),
     }),
-    [state.restaurantId, state.items, count]
+    [state.restaurantId, state.items, count],
   );
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;

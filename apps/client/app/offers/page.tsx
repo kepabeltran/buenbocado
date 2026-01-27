@@ -24,7 +24,10 @@ function getApiBase(): string {
 }
 
 function formatEuros(cents: number): string {
-  return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+  return (cents / 100).toLocaleString("es-ES", {
+    style: "currency",
+    currency: "EUR",
+  });
 }
 
 async function getActiveMenus(): Promise<ApiMenu[]> {
@@ -36,7 +39,7 @@ async function getActiveMenus(): Promise<ApiMenu[]> {
 
   const res = await fetch(
     `${base}/api/menus/active?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
-    { cache: "no-store" }
+    { cache: "no-store" },
   );
 
   if (!res.ok) return [];
@@ -48,7 +51,16 @@ async function getActiveMenus(): Promise<ApiMenu[]> {
 function isDineIn(t: ApiMenu["type"]) {
   return t === "DINEIN" || t === "DINE_IN";
 }
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:4000";
 
+function fixImageUrl(u: string | null | undefined) {
+  if (!u) return u as any;
+  if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
+  return u
+    .replace("http://127.0.0.1:4000", API_BASE)
+    .replace("http://localhost:4000", API_BASE);
+}
 export default async function OffersPage() {
   const items = await getActiveMenus();
 
@@ -61,12 +73,14 @@ export default async function OffersPage() {
               <span className="grid h-7 w-7 place-items-center rounded-xl bg-zinc-900 text-white text-xs font-bold">
                 BB
               </span>
-              Ofertas (API)
+              Ofertas
             </div>
 
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-900">Ofertas</h1>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-900">
+              Ofertas
+            </h1>
             <p className="mt-1 text-sm text-zinc-700">
-              Mostrando menús activos desde la API (DB).
+              Ofertas de última hora (se actualiza en tiempo real).
             </p>
           </div>
 
@@ -89,19 +103,68 @@ export default async function OffersPage() {
             >
               Restaurantes
             </Link>
+            <Link
+              href="/r/login"
+              className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-semibold text-zinc-700 shadow-sm backdrop-blur hover:bg-white hover:text-zinc-900"
+              title="Acceso restaurante (demo)"
+            >
+              Soy restaurante
+            </Link>
           </nav>
         </header>
 
         {items.length === 0 ? (
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="text-lg font-semibold">Aún no hay ofertas activas en la base de datos.</div>
-            <p className="mt-1 text-sm text-zinc-700">
-              Para ver el modo demo (hardcode), entra en{" "}
-              <Link href="/ofertas" className="font-semibold underline">
-                /ofertas
-              </Link>
-              .
-            </p>
+          <div className="rounded-3xl border border-zinc-200 bg-white/80 p-8 shadow-sm backdrop-blur">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  Sin ofertas ahora
+                </div>
+
+                <h2 className="mt-3 text-2xl font-black tracking-tight text-zinc-900">
+                  Ahora mismo no hay ofertas activas
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-zinc-700">
+                  Esto cambia rápido. Reintenta en un minuto o explora
+                  restaurantes cercanos.
+                </p>
+
+                <div className="mt-4 text-sm text-zinc-600">
+                  <span className="font-semibold text-zinc-900">Tip:</span> en
+                  producción la lista se ordenará por cercanía (GPS).
+                </div>
+
+                <div className="mt-4 text-sm text-zinc-600">
+                  ¿Estás probando en local?{" "}
+                  <Link href="/ofertas" className="font-semibold underline">
+                    Ver ofertas demo
+                  </Link>
+                  .
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-col gap-2 sm:w-60">
+                <Link
+                  href="/offers"
+                  className="rounded-2xl bg-zinc-900 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-zinc-800"
+                >
+                  Reintentar
+                </Link>
+                <Link
+                  href="/restaurants"
+                  className="rounded-2xl border border-zinc-200 bg-white px-5 py-3 text-center text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+                >
+                  Ver restaurantes
+                </Link>
+                <Link
+                  href="/r/login"
+                  className="rounded-full border border-zinc-200 bg-white/70 px-4 py-2 text-center text-xs font-semibold text-zinc-700 shadow-sm backdrop-blur hover:bg-white hover:text-zinc-900"
+                >
+                  Soy restaurante
+                </Link>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
@@ -127,7 +190,7 @@ export default async function OffersPage() {
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={m.imageUrl as string}
+                            src={fixImageUrl(m.imageUrl as string)}
                             alt={m.title}
                             className="absolute inset-0 h-full w-full object-cover object-center"
                             loading="lazy"
@@ -191,12 +254,14 @@ export default async function OffersPage() {
 
                     <div className="space-y-4 p-5">
                       <p className="text-sm text-zinc-700 line-clamp-3">
-                        {m.description ?? "Oferta disponible por tiempo limitado."}
+                        {m.description ??
+                          "Oferta disponible por tiempo limitado."}
                       </p>
 
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="text-xs text-zinc-500">
-                          ID: <span className="font-mono">{m.id.slice(0, 8)}</span>
+                          ID:{" "}
+                          <span className="font-mono">{m.id.slice(0, 8)}</span>
                         </div>
 
                         <div className="flex gap-2">

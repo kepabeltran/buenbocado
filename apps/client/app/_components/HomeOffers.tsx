@@ -35,7 +35,8 @@ export default function HomeOffers() {
         <div>
           <h2 className="text-xl font-semibold">Ofertas cerca de ti</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Última hora y excedentes con descuento. Caducan rápido o se programan por días.
+            Última hora y excedentes con descuento. Caducan rápido o se
+            programan por días.
           </p>
         </div>
         <Link
@@ -58,8 +59,12 @@ export default function HomeOffers() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-xs text-zinc-500">{o.restaurantName}</div>
-                  <div className="mt-1 text-base font-semibold leading-snug">{o.titulo}</div>
+                  <div className="text-xs text-zinc-500">
+                    {o.restaurantName}
+                  </div>
+                  <div className="mt-1 text-base font-semibold leading-snug">
+                    {o.titulo}
+                  </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {pct > 0 && (
@@ -80,13 +85,19 @@ export default function HomeOffers() {
                   <div className="text-xs text-zinc-500">
                     {o.cadencia === "PROGRAMADA" ? "Disponible" : "Caduca en"}
                   </div>
-                  <div className="mt-1 font-mono text-sm font-semibold">{caduca}</div>
+                  <div className="mt-1 font-mono text-sm font-semibold">
+                    {caduca}
+                  </div>
                 </div>
               </div>
 
-              <p className="mt-4 text-sm text-zinc-600 line-clamp-2">{o.descripcion}</p>
+              <p className="mt-4 text-sm text-zinc-600 line-clamp-2">
+                {o.descripcion}
+              </p>
 
-              <div className="mt-4 text-sm font-semibold text-zinc-900">Ver oferta →</div>
+              <div className="mt-4 text-sm font-semibold text-zinc-900">
+                Ver oferta →
+              </div>
             </Link>
           );
         })}

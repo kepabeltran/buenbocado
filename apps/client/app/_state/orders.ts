@@ -53,18 +53,31 @@ function normalize(list: any[]): Order[] {
 
       const statusRaw = String(o?.status ?? "PREPARING").toUpperCase();
       const status: OrderStatus =
-        statusRaw === "CREATED" || statusRaw === "PREPARING" || statusRaw === "READY" || statusRaw === "DELIVERED"
+        statusRaw === "CREATED" ||
+        statusRaw === "PREPARING" ||
+        statusRaw === "READY" ||
+        statusRaw === "DELIVERED"
           ? (statusRaw as OrderStatus)
           : "PREPARING";
 
       const pickup = String(o?.pickupCode ?? o?.code ?? "").trim();
-      const pickupCode = /^\d{6}$/.test(pickup) ? pickup : String(Math.floor(100000 + Math.random() * 900000));
+      const pickupCode = /^\d{6}$/.test(pickup)
+        ? pickup
+        : String(Math.floor(100000 + Math.random() * 900000));
 
       return {
-        id: String(o?.id ?? o?.orderId ?? `ord_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`),
+        id: String(
+          o?.id ??
+            o?.orderId ??
+            `ord_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`,
+        ),
         createdAt: created,
-        restaurantId: String(o?.restaurantId ?? o?.restaurant?.id ?? "rest_demo"),
-        restaurantName: String(o?.restaurantName ?? o?.restaurant?.name ?? "Restaurante (demo)"),
+        restaurantId: String(
+          o?.restaurantId ?? o?.restaurant?.id ?? "rest_demo",
+        ),
+        restaurantName: String(
+          o?.restaurantName ?? o?.restaurant?.name ?? "Restaurante (demo)",
+        ),
         status,
         pickupCode,
         items: Array.isArray(o?.items) ? o.items : [],
@@ -73,7 +86,10 @@ function normalize(list: any[]): Order[] {
           name: String(o?.customer?.name ?? ""),
           phone: String(o?.customer?.phone ?? ""),
           address: String(o?.customer?.address ?? ""),
-          notes: typeof o?.customer?.notes === "string" ? o.customer.notes : undefined,
+          notes:
+            typeof o?.customer?.notes === "string"
+              ? o.customer.notes
+              : undefined,
         },
       } as Order;
     })
@@ -162,26 +178,49 @@ export function setOrderStatus(id: string, status: OrderStatus): Order | null {
   return list[idx];
 }
 
-export function findOrderByPickupCode(code: string, restaurantId?: string): Order | null {
+export function findOrderByPickupCode(
+  code: string,
+  restaurantId?: string,
+): Order | null {
   const clean = (code ?? "").trim();
   if (!/^\d{6}$/.test(clean)) return null;
 
   const list = load();
-  const found = list.find((o) => o.pickupCode === clean && (!restaurantId || o.restaurantId === restaurantId));
+  const found = list.find(
+    (o) =>
+      o.pickupCode === clean &&
+      (!restaurantId || o.restaurantId === restaurantId),
+  );
   return found ?? null;
 }
 
-export function validatePickupCode(code: string, restaurantId?: string): { ok: boolean; message: string; order?: Order } {
+export function validatePickupCode(
+  code: string,
+  restaurantId?: string,
+): { ok: boolean; message: string; order?: Order } {
   const order = findOrderByPickupCode(code, restaurantId);
-  if (!order) return { ok: false, message: "Código no encontrado (o no pertenece a este restaurante)." };
+  if (!order)
+    return {
+      ok: false,
+      message: "Código no encontrado (o no pertenece a este restaurante).",
+    };
 
-  if (order.status === "DELIVERED") return { ok: false, message: "Este pedido ya fue entregado.", order };
+  if (order.status === "DELIVERED")
+    return { ok: false, message: "Este pedido ya fue entregado.", order };
   if (order.status !== "READY") {
-    return { ok: false, message: `Aún no está listo (estado: ${order.status}). Márcalo como LISTO antes de entregar.`, order };
+    return {
+      ok: false,
+      message: `Aún no está listo (estado: ${order.status}). Márcalo como LISTO antes de entregar.`,
+      order,
+    };
   }
 
   const updated = setOrderStatus(order.id, "DELIVERED");
-  return { ok: true, message: "✅ Entrega confirmada. Pedido marcado como ENTREGADO.", order: updated ?? order };
+  return {
+    ok: true,
+    message: "✅ Entrega confirmada. Pedido marcado como ENTREGADO.",
+    order: updated ?? order,
+  };
 }
 
 /** Inserta/actualiza un pedido en localStorage con un id externo (ej: cmk... de Prisma) */
@@ -198,7 +237,13 @@ export function upsertOrder(order: Order): Order {
 
 function toStatus(raw: unknown): OrderStatus {
   const s = String(raw ?? "").toUpperCase();
-  if (s === "CREATED" || s === "PREPARING" || s === "READY" || s === "DELIVERED") return s as OrderStatus;
+  if (
+    s === "CREATED" ||
+    s === "PREPARING" ||
+    s === "READY" ||
+    s === "DELIVERED"
+  )
+    return s as OrderStatus;
   return "CREATED";
 }
 
@@ -226,7 +271,9 @@ export function upsertExternalOrder(input: {
   const existingCodes = new Set(list.map((o) => o.pickupCode));
 
   const codeRaw = String(input.code ?? "").trim();
-  const pickupCode = /^\d{6}$/.test(codeRaw) ? codeRaw : genPickupCode(existingCodes);
+  const pickupCode = /^\d{6}$/.test(codeRaw)
+    ? codeRaw
+    : genPickupCode(existingCodes);
 
   const createdAt =
     typeof input.createdAt === "string" && input.createdAt

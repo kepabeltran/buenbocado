@@ -26,13 +26,14 @@ export default function RestaurantEntryPage() {
               Panel del restaurante
             </h1>
             <p className="mt-1 text-sm text-zinc-700">
-              En demo eliges restaurante aquí. En producción entrarás identificado (sin selector).
+              En demo eliges restaurante aquí. En producción entrarás
+              identificado (sin selector).
             </p>
           </div>
 
           <nav className="flex flex-wrap gap-2">
             <Link
-              href="/portal"
+              href="/r/buen-bocado"
               className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
             >
               Portal
@@ -86,7 +87,9 @@ export default function RestaurantEntryPage() {
                     <div className="text-xl font-black tracking-tight text-zinc-900">
                       {r.name}
                     </div>
-                    <div className="mt-1 text-sm text-zinc-700">{r.tagline}</div>
+                    <div className="mt-1 text-sm text-zinc-700">
+                      {r.tagline}
+                    </div>
                   </div>
                 </div>
 

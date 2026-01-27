@@ -49,7 +49,9 @@ export default async function NearbyPage() {
               <p className="text-sm text-slate-600">{menu.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span>{menu.type === "TAKEAWAY" ? "Para llevar" : "En el local"}</span>
+              <span>
+                {menu.type === "TAKEAWAY" ? "Para llevar" : "En el local"}
+              </span>
               <span>·</span>
               <span>
                 {(menu.priceCents / 100).toFixed(2)} {menu.currency}
