@@ -411,12 +411,15 @@ app.post("/api/orders", async (req: any, reply: any) => {
         throw new Error("OUT_OF_STOCK");
       }
 
-      return tx.order.create({
+            return tx.order.create({
         data: {
           menuId,
           customerName,
           customerEmail,
           code,
+          totalCents: menu.priceCents,
+          commissionBpsAtPurchase: menu.restaurant?.commissionBps ?? 0,
+          platformFeeCents: Math.round(menu.priceCents * ((menu.restaurant?.commissionBps ?? 0) / 10000)),
           // status: CREATED por defecto
         },
       });
@@ -457,9 +460,217 @@ app.post("/api/orders", async (req: any, reply: any) => {
 
 //
 // --- Restaurant Orders (MVP) ---
-// Sin auth todav?f?'?,a: sirve para portal restaurante mientras montamos roles.
+// No auth yet: used for restaurant portal while we build roles.
 // Opcional: filtrar por ?restaurantId=... y limitar con ?take=...
 //
+/**
+ * ADMIN (MVP): listar restaurantes con configuración.
+ * (Más adelante: auth/roles)
+ */
+/**
+ * ADMIN: Crear restaurante (MVP)
+ * Body ejemplo:
+ * {
+ *   "name":"Mi Restaurante",
+ *   "slug":"mi-restaurante",            // opcional (si no, se genera)
+ *   "address":"Calle X, Granada",
+ *   "lat":37.176,
+ *   "lng":-3.600,
+ *   "zoneTag":"GR-CENTRO",
+ *   "isActive":true,
+ *   "commissionBps":1500,              // 1500 = 15%
+ *   "contactPeople":"Ana · gerente · +34..., Luis · sala · +34...",
+ *   "settlementMode":"WEEKLY_CALENDAR",
+ *   "settlementWeekday":5,
+ *   "settlementTimezone":"Europe/Madrid"
+ * }
+ */
+app.post("/api/admin/restaurants", async (req: any, reply: any) => {
+  const body = (req.body ?? {}) as any;
+
+  const name = String(body.name ?? "").trim();
+  const address = String(body.address ?? "").trim();
+  const zoneTag = String(body.zoneTag ?? "").trim();
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+
+  if (!name) return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "name es obligatorio" });
+  if (!address) return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "address es obligatorio" });
+  if (!zoneTag) return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "zoneTag es obligatorio" });
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "lat/lng deben ser numéricos" });
+  }
+
+  let slug = String(body.slug ?? "").trim();
+  if (!slug) {
+    slug = name
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60);
+  }
+  if (!slug) slug = `rest-${Math.random().toString(36).slice(2, 8)}`;
+
+  const data: any = {
+    name,
+    slug,
+    address,
+    lat,
+    lng,
+    zoneTag,
+    isActive: ("isActive" in body) ? !!body.isActive : true,
+  };
+
+  if ("commissionBps" in body) data.commissionBps = Number(body.commissionBps) || 0;
+  if ("contactPeople" in body) data.contactPeople = String(body.contactPeople ?? "").trim() || null;
+  if ("phone" in body) data.phone = String(body.phone ?? "").trim() || null;
+
+  // Estos 3 pueden existir con defaults en BD: si vienen, los guardamos; si no, los defaults mandan.
+  if ("settlementMode" in body) data.settlementMode = String(body.settlementMode ?? "").trim();
+  if ("settlementWeekday" in body) data.settlementWeekday = Number(body.settlementWeekday);
+  if ("settlementTimezone" in body) data.settlementTimezone = String(body.settlementTimezone ?? "").trim();
+
+  const select: any = {
+    id: true, name: true, slug: true, address: true, phone: true, lat: true, lng: true, zoneTag: true,
+    isActive: true, commissionBps: true,
+    settlementMode: true, settlementWeekday: true, settlementTimezone: true,
+    contactPeople: true,
+    logoUrl: true,
+    coverUrl: true,
+    createdAt: true, updatedAt: true,
+  };
+
+  try {
+    const created = await prisma.restaurant.create({ data, select });
+    return reply.send({ ok: true, data: created });
+  } catch (e: any) {
+    // Si el slug choca por unique, reintenta 1 vez con sufijo
+    if (String(e?.code ?? "") === "P2002") {
+      try {
+        const created2 = await prisma.restaurant.create({
+          data: { ...data, slug: `${slug}-${Math.random().toString(36).slice(2, 6)}` },
+          select,
+        });
+        return reply.send({ ok: true, data: created2 });
+      } catch (e2: any) {
+        return reply.code(500).send({ ok: false, error: "INTERNAL_ERROR", message: e2?.message ?? String(e2) });
+      }
+    }
+    return reply.code(500).send({ ok: false, error: "INTERNAL_ERROR", message: e?.message ?? String(e) });
+  }
+});
+app.get("/api/admin/restaurants", async (_req: any) => {
+  const restaurants = await prisma.restaurant.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      address: true,
+      phone: true,
+      lat: true,
+      lng: true,
+      zoneTag: true,
+      isActive: true,
+      commissionBps: true,
+      contactPeople: true,
+      logoUrl: true,
+      coverUrl: true,
+      settlementMode: true,
+      settlementWeekday: true,
+      settlementTimezone: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return { ok: true, data: restaurants };
+});
+/**
+ * ADMIN (MVP): actualizar un restaurante (config + datos básicos).
+ * (Más adelante: auth/roles)
+ */
+app.patch("/api/admin/restaurants/:id", async (req: any, reply: any) => {
+  const id = String((req.params as any)?.id ?? "").trim();
+  if (!id) {
+    return reply
+      .code(400)
+      .send({ ok: false, error: "BAD_REQUEST", message: "id es obligatorio" });
+  }
+
+  const body = (req.body ?? {}) as any;
+
+  const modeRaw = String(body.settlementMode ?? "").trim();
+  const allowedModes = ["WEEKLY_CALENDAR", "ROLLING_7D", "CUSTOM_RANGE"];
+  const settlementMode = allowedModes.includes(modeRaw) ? modeRaw : undefined;
+
+  const weekdayNum = Number(body.settlementWeekday);
+  const settlementWeekday =
+    Number.isFinite(weekdayNum) && weekdayNum >= 1 && weekdayNum <= 7
+      ? Math.trunc(weekdayNum)
+      : undefined;
+
+  const latNum = Number(body.lat);
+  const lngNum = Number(body.lng);
+
+  const data: any = {
+    slug: "slug" in body ? (String(body.slug ?? "").trim() || null) : undefined,
+    address: "address" in body ? String(body.address ?? "").trim() : undefined,
+    phone: "phone" in body ? (String(body.phone ?? "").trim() || null) : undefined,
+    zoneTag: "zoneTag" in body ? String(body.zoneTag ?? "").trim() : undefined,
+    isActive: "isActive" in body ? !!body.isActive : undefined,
+    lat: "lat" in body && Number.isFinite(latNum) ? latNum : undefined,
+    lng: "lng" in body && Number.isFinite(lngNum) ? lngNum : undefined,
+    commissionBps:
+      "commissionBps" in body && Number.isFinite(Number(body.commissionBps))
+        ? Math.trunc(Number(body.commissionBps))
+        : undefined,
+    contactPeople:
+      "contactPeople" in body ? (String(body.contactPeople ?? "").trim() || null) : undefined,
+    settlementMode: "settlementMode" in body ? settlementMode : undefined,
+    settlementWeekday: "settlementWeekday" in body ? settlementWeekday : undefined,
+    settlementTimezone:
+      "settlementTimezone" in body
+        ? (String(body.settlementTimezone ?? "").trim() || "Europe/Madrid")
+        : undefined,
+  };
+
+  Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+
+  try {
+    const updated = await prisma.restaurant.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        address: true,
+        phone: true,
+        lat: true,
+        lng: true,
+        zoneTag: true,
+        isActive: true,
+        commissionBps: true,
+        contactPeople: true,
+        logoUrl: true,
+        coverUrl: true,
+        settlementMode: true,
+        settlementWeekday: true,
+        settlementTimezone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return reply.send({ ok: true, data: updated });
+  } catch (e: any) {
+    return reply
+      .code(500)
+      .send({ ok: false, error: "SERVER_ERROR", message: String(e?.message ?? e) });
+  }
+});
 app.get("/api/restaurant/orders", async (req: any) => {
   const q = (req.query ?? {}) as any;
   const restaurantId = String(q.restaurantId ?? "").trim() || null;
@@ -482,13 +693,31 @@ app.get("/api/restaurant/orders", async (req: any) => {
     },
   });
 
-  const data = orders.map((o: any) => ({
+const data = orders.map((o: any) => {
+  const totalCents = o.totalCents ?? o.menu?.priceCents ?? null;
+  const commissionBpsAtPurchase =
+    o.commissionBpsAtPurchase ?? o.menu?.restaurant?.commissionBps ?? null;
+  const platformFeeCents =
+    o.platformFeeCents ??
+    (totalCents != null && commissionBpsAtPurchase != null
+      ? Math.round(totalCents * (commissionBpsAtPurchase / 10000))
+      : null);
+  const netToRestaurantCents =
+    totalCents != null && platformFeeCents != null ? totalCents - platformFeeCents : null;
+
+  return {
     id: o.id,
     status: o.status,
     code: o.code,
     createdAt: o.createdAt,
     customerName: o.customerName,
     customerEmail: o.customerEmail,
+
+    totalCents,
+    commissionBpsAtPurchase,
+    platformFeeCents,
+    netToRestaurantCents,
+
     menu: o.menu
       ? {
           id: o.menu.id,
@@ -504,7 +733,8 @@ app.get("/api/restaurant/orders", async (req: any) => {
           name: o.menu.restaurant.name,
         }
       : null,
-  }));
+  };
+});
 
   return { ok: true, data };
 });
@@ -525,9 +755,30 @@ app.get("/api/orders/:id", async (req: any, reply: any) => {
     return reply.code(404).send({ ok: false, error: "NOT_FOUND", message: "Pedido no encontrado" });
   }
 
+  const totalCents = order.totalCents ?? order.menu?.priceCents ?? null;
+  const commissionBpsAtPurchase =
+    order.commissionBpsAtPurchase ?? order.menu?.restaurant?.commissionBps ?? null;
+  const platformFeeCents =
+    order.platformFeeCents ??
+    (totalCents != null && commissionBpsAtPurchase != null
+      ? Math.round(totalCents * (commissionBpsAtPurchase / 10000))
+      : null);
+  const netToRestaurantCents =
+    totalCents != null && platformFeeCents != null ? totalCents - platformFeeCents : null;
+
   return {
     ok: true,
-    order: { id: order.id, status: order.status, code: order.code, menuId: order.menuId, createdAt: order.createdAt },
+    order: {
+      id: order.id,
+      status: order.status,
+      code: order.code,
+      menuId: order.menuId,
+      createdAt: order.createdAt,
+      totalCents,
+      commissionBpsAtPurchase,
+      platformFeeCents,
+      netToRestaurantCents,
+    },
     menu: order.menu
       ? {
           id: order.menu.id,
