@@ -12,7 +12,13 @@ type OrderDto = {
   createdAt: string;
   customerName: string;
   customerEmail: string;
-  menu: null | {
+
+  // --- contabilidad (liquidaciones) ---
+  totalCents?: number | null;
+  commissionBpsAtPurchase?: number | null;
+  platformFeeCents?: number | null;
+  netToRestaurantCents?: number | null;
+menu: null | {
     id: string;
     title: string;
     type: "TAKEAWAY" | "DINEIN";
@@ -48,6 +54,20 @@ function shortId(id: string) {
   return id.slice(-6);
 }
 
+
+function formatMoney(cents: number | null | undefined, currency: string) {
+  if (cents == null) return "—";
+  try {
+    return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency}`;
+  }
+}
+
+function formatBps(bps: number | null | undefined) {
+  if (bps == null) return "—";
+  return `${(bps / 100).toFixed(2)}%`;
+}
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderDto[]>([]);
   const [loading, setLoading] = useState(true); // solo primera carga
@@ -64,7 +84,11 @@ export default function OrdersPage() {
 
   const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:4000").replace(/\/$/, "");
 
-  const inProgress = useMemo(() => {
+  
+
+  const RESTAURANT_ID_ENV = (process.env.NEXT_PUBLIC_RESTAURANT_ID || "").trim();
+
+const inProgress = useMemo(() => {
     const list = orders.filter((o) => o.status !== "DELIVERED");
     list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     return list;
@@ -180,7 +204,11 @@ export default function OrdersPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/restaurant/orders/mark-delivered`, {
+            const endpoint = RESTAURANT_ID_ENV
+        ? `${API_BASE}/api/restaurants/${encodeURIComponent(RESTAURANT_ID_ENV)}/orders/mark-delivered`
+        : `${API_BASE}/api/restaurant/orders/mark-delivered`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: normalizedCode }),
@@ -328,6 +356,17 @@ export default function OrdersPage() {
                     Código: <span className="font-semibold text-slate-700">{o.code}</span>
                     {o.restaurant?.name ? <span className="ml-2 text-slate-400">· {o.restaurant.name}</span> : null}
                   </p>
+                    {(o.totalCents != null || o.platformFeeCents != null || o.netToRestaurantCents != null || o.commissionBpsAtPurchase != null) ? (
+                      <p className="mt-1 text-xs text-slate-600">
+                        <span className="font-semibold">Total</span>: {formatMoney(o.totalCents ?? o.menu?.priceCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">Fee</span>: {formatMoney(o.platformFeeCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">Neto</span>: {formatMoney(o.netToRestaurantCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">%</span>: {formatBps(o.commissionBpsAtPurchase)}
+                      </p>
+                    ) : null}
                 </div>
                 <Chip>{STATUS_LABEL[o.status]}</Chip>
               </Card>
@@ -369,6 +408,17 @@ export default function OrdersPage() {
                       Código: <span className="font-semibold text-slate-700">{o.code}</span>
                       {o.restaurant?.name ? <span className="ml-2 text-slate-400">· {o.restaurant.name}</span> : null}
                     </p>
+                    {(o.totalCents != null || o.platformFeeCents != null || o.netToRestaurantCents != null || o.commissionBpsAtPurchase != null) ? (
+                      <p className="mt-1 text-xs text-slate-600">
+                        <span className="font-semibold">Total</span>: {formatMoney(o.totalCents ?? o.menu?.priceCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">Fee</span>: {formatMoney(o.platformFeeCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">Neto</span>: {formatMoney(o.netToRestaurantCents ?? null, o.menu?.currency ?? "EUR")}
+                        {" · "}
+                        <span className="font-semibold">%</span>: {formatBps(o.commissionBpsAtPurchase)}
+                      </p>
+                    ) : null}
                   </div>
                   <Chip>{STATUS_LABEL[o.status]}</Chip>
                 </Card>

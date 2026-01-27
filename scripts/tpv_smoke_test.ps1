@@ -1,4 +1,4 @@
-# ===========================
+﻿# ===========================
 # BuenBocado - TPV Smoke Test
 # Create menu -> create order -> verify list -> mark delivered -> verify DELIVERED
 # ===========================
