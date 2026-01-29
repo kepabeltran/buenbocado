@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import QRCode from "react-qr-code";
 
 type ApiOrderResp = {
   ok: boolean;
@@ -207,6 +208,11 @@ export default function OrderPage() {
             </div>
             <div className="mt-2 text-4xl font-extrabold tracking-widest text-amber-900">
               {code}
+            </div>
+            <div className="mt-4 flex justify-center">
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-amber-200">
+                <QRCode value={code} size={168} />
+              </div>
             </div>
             <p className="mt-3 text-sm text-amber-900/80">
               Enséñalo en el restaurante. Para marcar como entregado, el
