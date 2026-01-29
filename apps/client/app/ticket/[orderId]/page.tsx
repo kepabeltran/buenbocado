@@ -336,17 +336,7 @@ export default function TicketPage() {
                 </Link>
               </div>
             </Card>
-
-            {/* DERECHA: QR mock (lo dejamos, pero m?s ?pro?) */}
-            <Card className="flex flex-col items-center justify-center gap-3 text-center p-6">
-              <div className="flex h-32 w-32 items-center justify-center rounded-2xl border border-dashed border-brand-200 bg-brand-50 text-xs font-semibold text-brand-700">
-                QR (mock)
-              </div>
-              <p className="text-xs text-slate-500">
-                (Esto se vuelve real m?s adelante)
-              </p>
-            </Card>
-          </div>
+</div>
         ) : null}
       </section>
     </main>
