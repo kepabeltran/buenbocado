@@ -9,7 +9,7 @@ export default function RestaurantLogin() {
   function enterDev() {
     // DEV: cookie temporal (luego será sesión real + roles)
     document.cookie = "bb_rest=1; Path=/; Max-Age=2592000; SameSite=Lax";
-    router.push("/r/buen-bocado");
+    window.location.href = "http://localhost:3001/r/orders";
   }
 
   function logoutDev() {
