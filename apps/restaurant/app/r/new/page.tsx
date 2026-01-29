@@ -154,6 +154,15 @@ export default function NewMenuPage() {
         </p>
       </header>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href="/r/orders"
+          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+        >
+          Ver pedidos
+        </Link>
+      </div>
+
       <Card className="space-y-4">
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -339,7 +348,7 @@ export default function NewMenuPage() {
 
             <Link
               className="inline-flex items-center justify-center rounded-lg border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:border-brand-300"
-              href="/r"
+              href="/r/orders"
             >
               Volver
             </Link>

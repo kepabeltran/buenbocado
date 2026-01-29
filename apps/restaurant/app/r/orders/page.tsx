@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Chip } from "@buenbocado/ui";
 
@@ -256,6 +257,15 @@ const inProgress = useMemo(() => {
           que enseña el cliente.
         </p>
       </header>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href="/r/new"
+          className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95 active:opacity-90"
+        >
+          Crear oferta
+        </Link>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4">
