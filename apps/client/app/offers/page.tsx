@@ -18,8 +18,10 @@ function getApiBase(): string {
   const rawBase =
     process.env.BUENBOCADO_API_URL ??
     process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
     "http://127.0.0.1:4000";
 
+  // Normaliza: si viene con /api al final, lo quitamos
   return rawBase.replace(/\/api\/?$/, "");
 }
 
@@ -30,9 +32,7 @@ function formatEuros(cents: number): string {
   });
 }
 
-async function getActiveMenus(): Promise<ApiMenu[]> {
-  const base = getApiBase();
-
+async function getActiveMenus(base: string): Promise<ApiMenu[]> {
   // DEV: hardcode para distancia "real" mientras no usamos geolocalización
   const lat = "37.176";
   const lng = "-3.600";
@@ -42,54 +42,53 @@ async function getActiveMenus(): Promise<ApiMenu[]> {
     { cache: "no-store" },
   );
 
-  if (!res.ok) return [];
+  // Si la API falla, mostramos pantalla de error (error.tsx)
+  if (!res.ok) {
+    throw new Error(`MENUS_ACTIVE_${res.status}`);
+  }
 
-  const json = (await res.json()) as { data?: ApiMenu[] };
+  const json = (await res.json().catch(() => null)) as { data?: ApiMenu[] } | null;
   return Array.isArray(json?.data) ? json.data : [];
 }
 
 function isDineIn(t: ApiMenu["type"]) {
   return t === "DINEIN" || t === "DINE_IN";
 }
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:4000";
 
-function fixImageUrl(u: string | null | undefined) {
+function fixImageUrl(apiBase: string, u: string | null | undefined) {
   if (!u) return u as any;
-  if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
+  if (u.startsWith("/uploads/")) return `${apiBase}${u}`;
+
   return u
-    .replace("http://127.0.0.1:4000", API_BASE)
-    .replace("http://localhost:4000", API_BASE);
+    .replace("http://127.0.0.1:4000", apiBase)
+    .replace("http://localhost:4000", apiBase);
 }
+
 export default async function OffersPage() {
-  const items = await getActiveMenus();
+  const apiBase = getApiBase();
+  const items = await getActiveMenus(apiBase);
+  const sorted = items.slice().sort((a, b) => a.distanceKm - b.distanceKm);
 
   return (
-    <main className="min-h-[100svh] bg-[radial-gradient(1200px_circle_at_30%_20%,rgba(24,24,27,0.10),transparent_55%),radial-gradient(900px_circle_at_70%_10%,rgba(59,130,246,0.10),transparent_50%),linear-gradient(to_bottom,rgba(250,250,250,1),rgba(244,244,245,1))] px-4 py-10 text-zinc-900">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/70 px-4 py-2 text-sm text-zinc-700 shadow-sm backdrop-blur">
-              <span className="grid h-7 w-7 place-items-center rounded-xl bg-zinc-900 text-white text-xs font-bold">
-                BB
-              </span>
-              Ofertas
+    <main className="min-h-[100svh] bg-[radial-gradient(1200px_circle_at_30%_20%,rgba(24,24,27,0.10),transparent_55%),radial-gradient(900px_circle_at_70%_10%,rgba(59,130,246,0.10),transparent_50%),linear-gradient(to_bottom,rgba(250,250,250,1),rgba(244,244,245,1))] text-zinc-900">
+      <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/70 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/offers" className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-zinc-900 text-white text-sm font-black">
+              BB
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold">BuenBocado</div>
+              <div className="text-xs text-zinc-500">ofertas de última hora</div>
             </div>
+          </Link>
 
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-900">
-              Ofertas
-            </h1>
-            <p className="mt-1 text-sm text-zinc-700">
-              Ofertas de última hora (se actualiza en tiempo real).
-            </p>
-          </div>
-
-          <nav className="flex flex-wrap gap-2">
+          <nav className="flex items-center gap-2">
             <Link
-              href="/"
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+              href="/restaurants"
+              className="hidden rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 sm:inline-flex"
             >
-              Home
+              Restaurantes
             </Link>
             <Link
               href="/orders"
@@ -97,24 +96,28 @@ export default async function OffersPage() {
             >
               Mis pedidos
             </Link>
-            <Link
-              href="/restaurants"
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-            >
-              Restaurantes
-            </Link>
-            <Link
-              href="/r/login"
-              className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-semibold text-zinc-700 shadow-sm backdrop-blur hover:bg-white hover:text-zinc-900"
-              title="Acceso restaurante (demo)"
-            >
-              Soy restaurante
-            </Link>
           </nav>
-        </header>
+        </div>
+      </header>
 
-        {items.length === 0 ? (
-          <div className="rounded-3xl border border-zinc-200 bg-white/80 p-8 shadow-sm backdrop-blur">
+      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/70 px-4 py-2 text-sm text-zinc-700 shadow-sm backdrop-blur">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            En vivo
+          </div>
+
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-zinc-900">
+            Ofertas cerca de ti
+          </h1>
+          <p className="mt-1 text-sm text-zinc-700">
+            Reserva en segundos. Sin historias.
+          </p>
+        </div>
+
+        {sorted.length === 0 ? (
+          <div className="min-h-[60svh] flex items-start sm:items-center">
+            <div className="w-full rounded-3xl border border-zinc-200 bg-white/80 p-8 shadow-sm backdrop-blur">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
@@ -126,22 +129,9 @@ export default async function OffersPage() {
                   Ahora mismo no hay ofertas activas
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-zinc-700">
-                  Esto cambia rápido. Reintenta en un minuto o explora
-                  restaurantes cercanos.
+                  Esto cambia rápido. Vuelve en unos minutos y aparecerán nuevas
+                  oportunidades.
                 </p>
-
-                <div className="mt-4 text-sm text-zinc-600">
-                  <span className="font-semibold text-zinc-900">Tip:</span> en
-                  producción la lista se ordenará por cercanía (GPS).
-                </div>
-
-                <div className="mt-4 text-sm text-zinc-600">
-                  ¿Estás probando en local?{" "}
-                  <Link href="/ofertas" className="font-semibold underline">
-                    Ver ofertas demo
-                  </Link>
-                  .
-                </div>
               </div>
 
               <div className="flex shrink-0 flex-col gap-2 sm:w-60">
@@ -157,18 +147,33 @@ export default async function OffersPage() {
                 >
                   Ver restaurantes
                 </Link>
-                <Link
-                  href="/r/login"
-                  className="rounded-full border border-zinc-200 bg-white/70 px-4 py-2 text-center text-xs font-semibold text-zinc-700 shadow-sm backdrop-blur hover:bg-white hover:text-zinc-900"
-                >
-                  Soy restaurante
-                </Link>
+              </div>
+            </div>
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-zinc-900">Cómo funciona</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="text-xs font-semibold text-zinc-500">1 · Elige</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">Una oferta cerca</div>
+                  <div className="mt-1 text-xs text-zinc-600">Precio cerrado y tiempo limitado.</div>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="text-xs font-semibold text-zinc-500">2 · Reserva</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">En segundos</div>
+                  <div className="mt-1 text-xs text-zinc-600">Sin llamadas. Sin líos.</div>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="text-xs font-semibold text-zinc-500">3 · Disfruta</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">Muestra tu código</div>
+                  <div className="mt-1 text-xs text-zinc-600">Buen precio, mejor bocado.</div>
+                </div>
               </div>
             </div>
           </div>
+        </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
-            {items.map((m) => {
+            {sorted.map((m) => {
               const hasImg = !!m.imageUrl;
 
               return (
@@ -190,7 +195,7 @@ export default async function OffersPage() {
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={fixImageUrl(m.imageUrl as string)}
+                            src={fixImageUrl(apiBase, m.imageUrl as string)}
                             alt={m.title}
                             className="absolute inset-0 h-full w-full object-cover object-center"
                             loading="lazy"
@@ -254,21 +259,13 @@ export default async function OffersPage() {
 
                     <div className="space-y-4 p-5">
                       <p className="text-sm text-zinc-700 line-clamp-3">
-                        {m.description ??
-                          "Oferta disponible por tiempo limitado."}
+                        {m.description ?? "Oferta disponible por tiempo limitado."}
                       </p>
 
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-xs text-zinc-500">
-                          ID:{" "}
-                          <span className="font-mono">{m.id.slice(0, 8)}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <span className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50">
-                            Ver detalle
-                          </span>
-                        </div>
+                      <div className="flex items-center justify-end">
+                        <span className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50">
+                          Ver detalle
+                        </span>
                       </div>
                     </div>
                   </div>
