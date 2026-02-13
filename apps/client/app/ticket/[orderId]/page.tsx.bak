@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@buenbocado/ui";
-
-import QRCode from "react-qr-code";
 import { fetchTicket } from "@/lib/api";
 import { getOrder } from "@/app/_state/orders";
 
@@ -25,7 +23,7 @@ type TicketVM = {
 function statusLabel(s?: string) {
   const v = String(s ?? "").toUpperCase();
   if (v === "CREATED") return "Reservado";
-  if (v === "PREPARING") return "En preparación";
+  if (v === "PREPARING") return "En preparaci?n";
   if (v === "READY") return "Listo para recoger";
   if (v === "DELIVERED") return "Entregado";
   return v || "?";
@@ -50,7 +48,7 @@ function formatMoney(cents?: number | null, currency?: string | null) {
 function normalizeCode(code?: string | null) {
   const raw = String(code ?? "").trim();
   const digits = raw.replace(/\D/g, "");
-  // Si parece numérico corto, lo llevamos a 6 dígitos (sin inventar si ya trae letras)
+  // Si parece num?rico corto, lo llevamos a 6 d?gitos (sin inventar si ya trae letras)
   if (digits && digits.length <= 6 && digits.length >= 4 && digits === raw) {
     return digits.padStart(6, "0");
   }
@@ -109,7 +107,7 @@ export default function TicketPage() {
             pickup: String(t?.pickup ?? t?.restaurant ?? "Restaurante"),
             instructions: String(
               t?.instructions ??
-                "Enseña este código en el local para recoger tu pedido.",
+                "Ense?a este c?digo en el local para recoger tu pedido.",
             ),
             title: t?.title ?? t?.menuTitle ?? null,
             priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
@@ -134,7 +132,7 @@ export default function TicketPage() {
           code: String((local as any).code ?? (local as any).pickupCode ?? ""),
           pickup: String(local.restaurantName ?? "Restaurante"),
           instructions:
-            "Enseña este código en el local para recoger tu pedido.",
+            "Ense?a este c?digo en el local para recoger tu pedido.",
           // si existiesen en localStorage en el futuro, los cogemos sin romper
           title: local.title ?? local.menuTitle ?? null,
           priceCents:
@@ -157,7 +155,7 @@ export default function TicketPage() {
           pickup: String(t?.pickup ?? t?.restaurant ?? "Restaurante"),
           instructions: String(
             t?.instructions ??
-              "Enseña este código en el local para recoger tu pedido.",
+              "Ense?a este c?digo en el local para recoger tu pedido.",
           ),
           title: t?.title ?? t?.menuTitle ?? null,
           priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
@@ -256,11 +254,11 @@ export default function TicketPage() {
           <div className="grid gap-4 md:grid-cols-[2fr,1fr]">
             {/* IZQUIERDA: info principal */}
             <Card className="space-y-5 p-6">
-              {/* código grande */}
+              {/* C?digo grande */}
               <div className="rounded-2xl border border-zinc-200 bg-white p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm text-slate-600">
-                    código de recogida
+                    C?digo de recogida
                   </div>
                   <button
                     type="button"
@@ -279,15 +277,8 @@ export default function TicketPage() {
                   {codePretty}
                 </p>
 
-                {/* QR */}
-                <div className="mt-4 flex justify-center">
-                  <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                    <QRCode value={String(codePretty ?? "").trim() || " "} size={128} />
-                  </div>
-                </div>
-
                 <p className="mt-3 text-sm text-zinc-600">
-                  Enséñalo en el local. Sin historias.
+                  Ens??alo en el local. Sin historias. ??
                 </p>
               </div>
 
@@ -351,4 +342,3 @@ export default function TicketPage() {
     </main>
   );
 }
-

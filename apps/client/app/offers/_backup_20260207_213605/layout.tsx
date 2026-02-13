@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { CartProvider } from "./_state/cart";
-import { ClientAuthProvider } from "./_auth/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Buen Bocado - Cliente",
@@ -13,11 +12,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body className="min-h-screen bg-brand-50">
-        <ClientAuthProvider>
-          <CartProvider>
-            <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-          </CartProvider>
-        </ClientAuthProvider>
+        <CartProvider>
+          <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        </CartProvider>
       </body>
     </html>
   );

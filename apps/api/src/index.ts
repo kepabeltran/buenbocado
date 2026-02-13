@@ -104,6 +104,8 @@ await app.register(fastifyStaticPlugin, {
 }
 
 const prisma = new PrismaClient();
+import { registerAuthRoutes } from './auth-routes.js';
+registerAuthRoutes(app, prisma);
 
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

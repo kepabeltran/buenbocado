@@ -27,6 +27,37 @@ enum RestaurantUserRole {
   STAFF
 }
 
+// ─── Auth: Cliente ────────────────────────────────────────
+model Customer {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders       Order[]
+
+  @@index([isActive])
+}
+
+// ─── Auth: Admin ──────────────────────────────────────────
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 model Restaurant {
   id            String   @id @default(cuid())
   name          String
@@ -44,7 +75,7 @@ model Restaurant {
 
   /// Personas de contacto (una por línea). Ej: "Ana · gerente · +34 600 000 000 · ana@restaurante.com"
   contactPeople String?
-
+
   logoUrl       String?
   coverUrl      String?
   /// Configuración de liquidaciones (editable desde Admin)
@@ -113,6 +144,7 @@ model Menu {
 model Order {
   id                    String      @id @default(cuid())
   menuId                String
+  customerId            String?
   status                OrderStatus @default(CREATED)
   customerName          String
   customerEmail         String
@@ -130,9 +162,11 @@ model Order {
   updatedAt             DateTime    @updatedAt
 
   menu                  Menu @relation(fields: [menuId], references: [id])
+  customer              Customer? @relation(fields: [customerId], references: [id])
   deliveredBy           RestaurantUser? @relation("DeliveredBy", fields: [deliveredByUserId], references: [id])
 
   @@index([menuId])
+  @@index([customerId])
   @@index([status])
   @@index([code])
   @@index([createdAt])
