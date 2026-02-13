@@ -27,62 +27,37 @@ enum RestaurantUserRole {
   STAFF
 }
 
-// ─── Auth: Cliente ────────────────────────────────────────
-model Customer {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  phone        String?
-  isActive     Boolean  @default(true)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  orders       Order[]
-
-  @@index([isActive])
+enum SettlementMode {
+  WEEKLY_CALENDAR
+  ROLLING_7D
+  CUSTOM_RANGE
 }
 
-// ─── Auth: Admin ──────────────────────────────────────────
-model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  isActive     Boolean  @default(true)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([isActive])
+enum SettlementStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  DISPUTED
 }
 
 model Restaurant {
   id            String   @id @default(cuid())
   name          String
-  /// Para rutas tipo /r/buen-bocado (se rellena desde admin más adelante)
   slug          String?  @unique
   address       String
-  /// Teléfono público del restaurante (se muestra en la ficha)
   phone         String?
   lat           Float
   lng           Float
   zoneTag       String
 
-  /// Comisión por restaurante en basis points (ej: 1200 = 12%). Admin la ajustará.
   commissionBps Int      @default(0)
-
-  /// Personas de contacto (una por línea). Ej: "Ana · gerente · +34 600 000 000 · ana@restaurante.com"
   contactPeople String?
 
   logoUrl       String?
   coverUrl      String?
-  /// Configuración de liquidaciones (editable desde Admin)
+
   settlementMode     SettlementMode @default(WEEKLY_CALENDAR)
-  /// 1=Lunes ... 7=Domingo
   settlementWeekday  Int            @default(1)
-  /// Zona horaria para cortes/fechas de liquidación
   settlementTimezone String         @default("Europe/Madrid")
   isActive      Boolean  @default(true)
 
@@ -91,6 +66,7 @@ model Restaurant {
 
   menus         Menu[]
   users         RestaurantUser[]
+  settlements   Settlement[]
 
   @@index([isActive])
   @@index([zoneTag])
@@ -127,8 +103,6 @@ model Menu {
   availableTo         DateTime
   expiresAt           DateTime
   allowTimeAdjustment Boolean  @default(false)
-
-  /// Tu API ya lo usa (upload -> /uploads/...)
   imageUrl            String?
 
   createdAt           DateTime @default(now())
@@ -142,39 +116,88 @@ model Menu {
 }
 
 model Order {
-  id                    String      @id @default(cuid())
-  menuId                String
-  customerId            String?
-  status                OrderStatus @default(CREATED)
-  customerName          String
-  customerEmail         String
-  code                  String
+  id                      String      @id @default(cuid())
+  menuId                  String
+  status                  OrderStatus @default(CREATED)
+  customerName            String
+  customerEmail           String
+  code                    String
 
-  /// Base para liquidaciones (congelamos importes/comisión)
-  totalCents            Int?
+  totalCents              Int?
   commissionBpsAtPurchase Int?
-  platformFeeCents      Int?
+  platformFeeCents        Int?
 
-  deliveredAt           DateTime?
-  deliveredByUserId     String?
+  customerId              String?
+  settlementId            String?
 
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  deliveredAt             DateTime?
+  deliveredByUserId       String?
 
-  menu                  Menu @relation(fields: [menuId], references: [id])
-  customer              Customer? @relation(fields: [customerId], references: [id])
-  deliveredBy           RestaurantUser? @relation("DeliveredBy", fields: [deliveredByUserId], references: [id])
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  menu                    Menu @relation(fields: [menuId], references: [id])
+  deliveredBy             RestaurantUser? @relation("DeliveredBy", fields: [deliveredByUserId], references: [id])
+  customer                Customer? @relation(fields: [customerId], references: [id])
+  settlement              Settlement? @relation(fields: [settlementId], references: [id])
 
   @@index([menuId])
-  @@index([customerId])
   @@index([status])
   @@index([code])
   @@index([createdAt])
   @@index([deliveredAt])
+  @@index([settlementId])
 }
 
-enum SettlementMode {
-  WEEKLY_CALENDAR
-  ROLLING_7D
-  CUSTOM_RANGE
+model Customer {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders       Order[]
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Settlement {
+  id                   String           @id @default(cuid())
+  restaurantId         String
+  periodStart          DateTime
+  periodEnd            DateTime
+  status               SettlementStatus @default(DRAFT)
+
+  totalOrdersCents     Int              @default(0)
+  totalOrders          Int              @default(0)
+  platformFeeCents     Int              @default(0)
+  netToRestaurantCents Int              @default(0)
+  commissionBps        Int              @default(0)
+
+  notes                String?
+  confirmedAt          DateTime?
+  confirmedBy          String?
+  paidAt               DateTime?
+  paidBy               String?
+
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  restaurant           Restaurant       @relation(fields: [restaurantId], references: [id])
+  orders               Order[]
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([periodStart])
 }

@@ -17,8 +17,8 @@ const NAV_ITEMS = [
   { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/offers", label: "Ofertas" },
   { href: "/admin/users", label: "Usuarios" },
+  { href: "/admin/settlements", label: "Liquidaciones" },
 ];
-
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
