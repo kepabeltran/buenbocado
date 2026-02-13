@@ -290,6 +290,9 @@ export function registerRestaurantRoutes(app: FastifyInstance, prisma: PrismaCli
       },
     });
 
+    onOrderDelivered(prisma, updated.id);
+
+
     return {
       ok: true,
       order: { id: updated.id, status: updated.status, code: updated.code, menuTitle: order.menu?.title },

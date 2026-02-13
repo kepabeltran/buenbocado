@@ -108,6 +108,7 @@ import { registerAuthRoutes } from './auth-routes.js';
 registerAuthRoutes(app, prisma);
 import { registerRestaurantRoutes } from './restaurant-routes.js';
 registerRestaurantRoutes(app, prisma);
+import { onOrderCreated, onOrderDelivered } from './order-hooks.js';
 import { registerAdminRoutes } from './admin-routes.js';
 registerAdminRoutes(app, prisma);
 import { registerSettlementRoutes } from './settlement-routes.js';
@@ -432,6 +433,8 @@ app.post("/api/orders", async (req: any, reply: any) => {
         },
       });
     });
+    onOrderCreated(prisma, order.id);
+
 
     return {
       ok: true,
