@@ -295,4 +295,53 @@ export function registerRestaurantRoutes(app: FastifyInstance, prisma: PrismaCli
       order: { id: updated.id, status: updated.status, code: updated.code, menuTitle: order.menu?.title },
     };
   });
+
+
+  // ─── EDITAR OFERTA (solo dentro de 10 min) ─────────────
+  app.patch("/api/restaurant/me/menus/:id", {
+    onRequest: [requireAuth("restaurant")],
+  }, async (req: any, reply) => {
+    const restaurantId = req.authUser!.restaurantId!;
+    const id = String(req.params?.id ?? "").trim();
+    const body = (req.body ?? {}) as any;
+
+    const menu = await prisma.menu.findFirst({ where: { id, restaurantId } });
+    if (!menu) {
+      return reply.code(404).send({ ok: false, error: "NOT_FOUND", message: "Oferta no encontrada" });
+    }
+
+    const EDIT_WINDOW_MS = 10 * 60 * 1000;
+    const elapsed = Date.now() - menu.createdAt.getTime();
+    if (elapsed > EDIT_WINDOW_MS) {
+      return reply.code(403).send({
+        ok: false,
+        error: "EDIT_WINDOW_CLOSED",
+        message: "El tiempo de edición ha expirado (máx. 10 min desde publicación)",
+      });
+    }
+
+    const data: any = {};
+    if (body.title !== undefined) data.title = String(body.title).trim();
+    if (body.description !== undefined) data.description = String(body.description).trim();
+    if (body.priceCents !== undefined) data.priceCents = Math.max(1, Math.floor(Number(body.priceCents)));
+    if (body.quantity !== undefined) data.quantity = Math.max(0, Math.floor(Number(body.quantity)));
+    if (body.type !== undefined && ["TAKEAWAY", "DINEIN"].includes(body.type)) data.type = body.type;
+    if (body.availableFrom !== undefined) data.availableFrom = new Date(body.availableFrom);
+    if (body.availableTo !== undefined) data.availableTo = new Date(body.availableTo);
+    if (body.expiresAt !== undefined) data.expiresAt = new Date(body.expiresAt);
+
+    if (Object.keys(data).length === 0) {
+      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "No hay campos para actualizar" });
+    }
+
+    const updated = await prisma.menu.update({ where: { id }, data });
+    const remainingMs = EDIT_WINDOW_MS - elapsed;
+
+    return {
+      ok: true,
+      data: updated,
+      editableUntil: new Date(menu.createdAt.getTime() + EDIT_WINDOW_MS).toISOString(),
+      remainingSeconds: Math.max(0, Math.floor(remainingMs / 1000)),
+    };
+  });
 }

@@ -11,6 +11,8 @@ const API_BASE = (
   "http://127.0.0.1:4000"
 ).replace(/\/$/, "");
 
+const EDIT_WINDOW_MS = 10 * 60 * 1000;
+
 type MenuDto = {
   id: string;
   title: string;
@@ -52,6 +54,18 @@ function statusBadge(m: MenuDto) {
   return { label: "Programada", color: "bg-blue-50 text-blue-700 border-blue-200" };
 }
 
+function isEditable(m: MenuDto) {
+  return Date.now() - new Date(m.createdAt).getTime() < EDIT_WINDOW_MS;
+}
+
+function editRemainingLabel(m: MenuDto) {
+  const remaining = EDIT_WINDOW_MS - (Date.now() - new Date(m.createdAt).getTime());
+  if (remaining <= 0) return null;
+  const min = Math.floor(remaining / 60000);
+  const sec = Math.floor((remaining % 60000) / 1000);
+  return String(min).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+}
+
 export default function OffersPage() {
   const { getToken } = useAuth();
   const [menus, setMenus] = useState<MenuDto[]>([]);
@@ -59,6 +73,7 @@ export default function OffersPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [actionMsg, setActionMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -80,6 +95,14 @@ export default function OffersPage() {
   }, [getToken]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Tick every second to update edit countdown
+  useEffect(() => {
+    const hasEditable = menus.some(isEditable);
+    if (!hasEditable) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [menus]);
 
   useEffect(() => {
     if (!actionMsg) return;
@@ -200,6 +223,8 @@ export default function OffersPage() {
         <div className="grid gap-3">
           {filtered.map((m) => {
             const badge = statusBadge(m);
+            const canEdit = isEditable(m);
+            const editTimer = editRemainingLabel(m);
             return (
               <Card key={m.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -238,7 +263,20 @@ export default function OffersPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {/* Editar — solo si quedan menos de 10 min */}
+                  {canEdit && (
+                    <Link
+                      href={"/r/offers/" + m.id}
+                      className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                    >
+                      Editar
+                      {editTimer && (
+                        <span className="ml-1 font-mono text-blue-500">({editTimer})</span>
+                      )}
+                    </Link>
+                  )}
+
                   {!m.isExpired && m.quantity > 0 && (
                     <button
                       type="button"
