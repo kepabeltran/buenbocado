@@ -375,7 +375,7 @@ export default async function OffersPage({
                 Carrito
               </Link>
               <Link
-                href="/r/login"
+                href="/account"
                 className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-semibold text-slate-500"
               >
                 <span className="h-1 w-10 rounded-full bg-transparent" />

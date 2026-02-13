@@ -157,6 +157,10 @@ function menuToDto(menu: any, now: Date, userLat: number | null, userLng: number
     distanceKm: (userLat !== null && userLng !== null && menu.restaurant?.lat != null && menu.restaurant?.lng != null) ? haversineKm(userLat, userLng, menu.restaurant.lat, menu.restaurant.lng) : null,
     badge: null,
     imageUrl: menu.imageUrl ?? null,
+    restaurantLat: menu.restaurant?.lat ?? null,
+    restaurantLng: menu.restaurant?.lng ?? null,
+    restaurantPhone: menu.restaurant?.phone ?? null,
+    restaurantAddress: menu.restaurant?.address ?? null,
   };
 }
 

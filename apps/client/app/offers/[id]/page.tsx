@@ -13,6 +13,10 @@ type ApiMenu = {
   distanceKm: number;
   badge?: string | null;
   imageUrl?: string | null;
+  restaurantLat?: number | null;
+  restaurantLng?: number | null;
+  restaurantPhone?: string | null;
+  restaurantAddress?: string | null;
 };
 
 function getApiBase(): string {
@@ -20,7 +24,6 @@ function getApiBase(): string {
     process.env.BUENBOCADO_API_URL ??
     process.env.NEXT_PUBLIC_API_URL ??
     "http://127.0.0.1:4000";
-
   return rawBase.replace(/\/api\/?$/, "");
 }
 
@@ -30,15 +33,24 @@ function isDineIn(t: ApiMenu["type"]) {
 
 async function getMenuById(id: string): Promise<ApiMenu | null> {
   const base = getApiBase();
-
-  // DEV: mantenemos lat/lng fijo para distancia "real" (como acordamos)
   const url = `${base}/api/menus/active?lat=37.176&lng=-3.600`;
-
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) return null;
-
   const payload = (await res.json()) as { data: ApiMenu[] };
   return payload.data.find((m) => m.id === id) ?? null;
+}
+
+function googleMapsUrl(lat: number | null | undefined, lng: number | null | undefined, address: string | null | undefined) {
+  if (lat && lng) return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  if (address) return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+  return null;
+}
+
+function whatsappUrl(phone: string | null | undefined) {
+  if (!phone) return null;
+  const cleaned = phone.replace(/[^0-9+]/g, "");
+  if (cleaned.length < 9) return null;
+  return `https://wa.me/${cleaned.replace("+", "")}`;
 }
 
 export default async function OfferDetailPage({
@@ -51,24 +63,16 @@ export default async function OfferDetailPage({
   if (!menu) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <Link
-          href="/offers"
-          className="text-sm text-zinc-600 hover:text-zinc-900"
-        >
+        <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
           ← Volver a ofertas
         </Link>
-
         <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
           <h1 className="text-xl font-semibold">Oferta no encontrada</h1>
           <p className="mt-2 text-sm text-zinc-600">
-            Puede que haya caducado o que el listado haya cambiado. Vuelve a
-            ofertas y entra de nuevo.
+            Puede que haya caducado o que el listado haya cambiado.
           </p>
           <div className="mt-6">
-            <Link
-              href="/offers"
-              className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-            >
+            <Link href="/offers" className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800">
               Ver ofertas activas
             </Link>
           </div>
@@ -77,18 +81,18 @@ export default async function OfferDetailPage({
     );
   }
 
+  const mapsUrl = googleMapsUrl(menu.restaurantLat, menu.restaurantLng, menu.restaurantAddress);
+  const waUrl = whatsappUrl(menu.restaurantPhone);
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link
-        href="/offers"
-        className="text-sm text-zinc-600 hover:text-zinc-900"
-      >
+      <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
         ← Volver a ofertas
       </Link>
 
       <div className="mt-6 rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
         <div className="text-xs text-zinc-500">
-          {menu.restaurant} · {isDineIn(menu.type) ? "DINEIN" : "TAKEAWAY"}
+          {menu.restaurant} · {isDineIn(menu.type) ? "En local" : "Para llevar"}
         </div>
 
         <h1 className="mt-2 text-2xl font-semibold">{menu.title}</h1>
@@ -114,9 +118,11 @@ export default async function OfferDetailPage({
           <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
             {menu.timeRemaining}
           </span>
-          <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
-            {menu.distanceKm.toFixed(1)} km
-          </span>
+          {menu.distanceKm != null && (
+            <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+              {menu.distanceKm.toFixed(1)} km
+            </span>
+          )}
           {menu.badge ? (
             <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700">
               {menu.badge}
@@ -128,20 +134,54 @@ export default async function OfferDetailPage({
           {menu.description ?? "Oferta disponible por tiempo limitado."}
         </p>
 
+        {/* Dirección del restaurante */}
+        {menu.restaurantAddress && (
+          <div className="mt-4 rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3">
+            <p className="text-xs text-zinc-500">Dirección</p>
+            <p className="text-sm font-medium text-zinc-800">{menu.restaurantAddress}</p>
+          </div>
+        )}
+
+        {/* Botones de acción principales */}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link
             href={`/checkout/oferta/${menu.id}`}
-            className="inline-flex justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+            className="inline-flex justify-center rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
           >
-            Reservar
+            Reservar por {formatEuros(menu.priceCents)}
           </Link>
 
           <Link
             href="/offers"
-            className="inline-flex justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            className="inline-flex justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
           >
             Seguir viendo ofertas
           </Link>
+        </div>
+
+        {/* Botones de contacto: Cómo llegar + WhatsApp */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              📍 Cómo llegar
+            </a>
+          )}
+
+          {waUrl && (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+            >
+              💬 WhatsApp
+            </a>
+          )}
         </div>
 
         <div className="mt-6 text-xs text-zinc-500">
