@@ -113,6 +113,8 @@ import { registerAdminRoutes } from './admin-routes.js';
 registerAdminRoutes(app, prisma);
 import { registerSettlementRoutes } from './settlement-routes.js';
 registerSettlementRoutes(app, prisma);
+import { registerCustomerRoutes } from './customer-routes.js';
+registerCustomerRoutes(app, prisma);
 
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

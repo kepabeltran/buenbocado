@@ -1,39 +1,6 @@
--- CreateEnum
-CREATE TYPE "SettlementStatus" AS ENUM ('DRAFT', 'CONFIRMED', 'PAID', 'DISPUTED');
-
--- CreateTable
-CREATE TABLE "Settlement" (
-    "id" TEXT NOT NULL,
-    "restaurantId" TEXT NOT NULL,
-    "periodStart" TIMESTAMP(3) NOT NULL,
-    "periodEnd" TIMESTAMP(3) NOT NULL,
-    "status" "SettlementStatus" NOT NULL DEFAULT 'DRAFT',
-    "totalOrdersCents" INTEGER NOT NULL DEFAULT 0,
-    "totalOrders" INTEGER NOT NULL DEFAULT 0,
-    "platformFeeCents" INTEGER NOT NULL DEFAULT 0,
-    "netToRestaurantCents" INTEGER NOT NULL DEFAULT 0,
-    "commissionBps" INTEGER NOT NULL DEFAULT 0,
-    "notes" TEXT,
-    "confirmedAt" TIMESTAMP(3),
-    "confirmedBy" TEXT,
-    "paidAt" TIMESTAMP(3),
-    "paidBy" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Settlement_pkey" PRIMARY KEY ("id")
-);
-
--- AddColumn to Order
-ALTER TABLE "Order" ADD COLUMN "settlementId" TEXT;
-ALTER TABLE "Order" ADD COLUMN "customerId" TEXT;
-
--- CreateIndex
-CREATE INDEX "Settlement_restaurantId_idx" ON "Settlement"("restaurantId");
-CREATE INDEX "Settlement_status_idx" ON "Settlement"("status");
-CREATE INDEX "Settlement_periodStart_idx" ON "Settlement"("periodStart");
-CREATE INDEX "Order_settlementId_idx" ON "Order"("settlementId");
-
--- AddForeignKey
-ALTER TABLE "Settlement" ADD CONSTRAINT "Settlement_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Order" ADD CONSTRAINT "Order_settlementId_fkey" FOREIGN KEY ("settlementId") REFERENCES "Settlement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- Add address fields to Customer
+ALTER TABLE "Customer" ADD COLUMN "address" TEXT;
+ALTER TABLE "Customer" ADD COLUMN "city" TEXT;
+ALTER TABLE "Customer" ADD COLUMN "postalCode" TEXT;
+ALTER TABLE "Customer" ADD COLUMN "lat" DOUBLE PRECISION;
+ALTER TABLE "Customer" ADD COLUMN "lng" DOUBLE PRECISION;

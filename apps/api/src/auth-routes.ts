@@ -254,7 +254,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     if (user.role === "customer") {
       const c = await prisma.customer.findUnique({
         where: { id: user.sub },
-        select: { id: true, email: true, name: true, phone: true },
+        select: { id: true, email: true, name: true, phone: true, address: true, city: true, postalCode: true, lat: true, lng: true },
       });
       return { ok: true, user: { ...c, role: "customer" } };
     }
