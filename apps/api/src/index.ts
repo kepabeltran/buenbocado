@@ -108,6 +108,8 @@ import { registerAuthRoutes } from './auth-routes.js';
 registerAuthRoutes(app, prisma);
 import { registerRestaurantRoutes } from './restaurant-routes.js';
 registerRestaurantRoutes(app, prisma);
+import { requireAuth } from './auth-middleware.js';
+import { startCronJobs } from './cron.js';
 import { onOrderCreated, onOrderDelivered } from './order-hooks.js';
 import { registerAdminRoutes } from './admin-routes.js';
 registerAdminRoutes(app, prisma);
@@ -377,7 +379,7 @@ app.patch<{
 
 
 const port = Number(process.env.PORT ?? 4000);
-app.post("/api/orders", async (req: any, reply: any) => {
+app.post("/api/orders", { onRequest: [requireAuth("customer")] }, async (req: any, reply: any) => { 
   const body = (req.body ?? {}) as any;
 
   const menuId = String(body.menuId ?? "").trim();
@@ -927,3 +929,4 @@ app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) =
 });
 
 await app.listen({ port, host: "0.0.0.0" });
+startCronJobs(prisma);
