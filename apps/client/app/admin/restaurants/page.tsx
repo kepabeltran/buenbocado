@@ -270,10 +270,7 @@ export default function AdminRestaurantsPage() {
             Recargar
           </button>
         </div>
-
-        <div style={{ marginTop: 14, fontSize: 13, opacity: 0.8 }}>
-          <b>Nota:</b> Lat/Lng se usan para calcular distancia en la app. Más adelante lo conectamos a un mapa para que sea pinchar y listo.
-        </div>
+        <div style={{ marginTop: 14, fontSize: 13, opacity: 0.8 }}><b>Nota:</b> Escribe la direccion y usa &quot;Buscar en Google Maps&quot; para obtener las coordenadas (clic derecho en el pin).</div>
 
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {/* LISTA */}
@@ -400,7 +397,10 @@ export default function AdminRestaurantsPage() {
                     </select>
                   </label>
                 </div>
-
+                <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, opacity: 0.75 }}>Pegar coordenadas de Google Maps</span>
+                    <input style={inputStyle()} placeholder="37.17717, -3.59807 (pega aqui desde Google Maps)" onChange={(e) => { const v = e.target.value; const parts = v.split(",").map((s: string) => s.trim()); if (parts.length === 2) { const la = parseFloat(parts[0]); const ln = parseFloat(parts[1]); if (Number.isFinite(la) && Number.isFinite(ln)) { setDraft((d: any) => ({ ...d, lat: la, lng: ln })); } } }} />
+                </label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     <span style={{ fontSize: 12, opacity: 0.75 }}>Latitud</span>
@@ -411,6 +411,7 @@ export default function AdminRestaurantsPage() {
                     <input value={String(draft.lng ?? "")} onChange={(e) => setDraft((d) => ({ ...d, lng: e.target.value as any }))} style={inputStyle()} placeholder="-3.600" />
                   </label>
                 </div>
+                <a href={"https://www.google.com/maps/search/" + encodeURIComponent(String(draft.address || ""))} target="_blank" rel="noopener" style={{ fontSize: 12, color: "#2563eb", cursor: "pointer", marginTop: 4 }}>Buscar en Google Maps (clic derecho en pin → copiar coordenadas)</a>
 
                 <label style={{ display: "grid", gap: 6 }}>
                   <span style={{ fontSize: 12, opacity: 0.75 }}>Comisión (bps)</span>
