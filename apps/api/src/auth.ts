@@ -22,7 +22,7 @@ export type TokenPayload = {
 // ─── Configuración ────────────────────────────────────────
 
 const JWT_SECRET = process.env.JWT_SECRET || "buenbocado-dev-secret-cambiame";
-const ACCESS_TOKEN_TTL = 15 * 60;         // 15 min
+const ACCESS_TOKEN_TTL = 8 * 60 * 60;         // 8 horas
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 días
 
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {

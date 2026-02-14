@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Chip } from "@buenbocado/ui";
 import { useAuth } from "../../_auth/AuthProvider";
+import QRScanner from "../_components/QRScanner";
 
 type OrderStatus = "CREATED" | "PREPARING" | "READY" | "DELIVERED";
 
@@ -70,6 +71,7 @@ export default function OrdersPage() {
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [showDelivered, setShowDelivered] = useState(false);
 
+  const [showScanner, setShowScanner] = useState(false);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const inFlightRef = useRef(false);
 
@@ -142,10 +144,10 @@ export default function OrdersPage() {
 
   const normalizedCode = useMemo(() => code.replace(/\D/g, ""), [code]);
 
-  async function markDelivered() {
+  async function markDelivered(directCode?: string) {
     setMessage(null);
-    if (normalizedCode.length < 3) {
-      setMessage({ type: "error", text: "Introduce un código válido." });
+    const useCode = directCode || normalizedCode;
+    if (useCode.length < 3) {
       focusCode(true);
       return;
     }
@@ -160,7 +162,7 @@ export default function OrdersPage() {
           Authorization: "Bearer " + token,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ code: normalizedCode }),
+        body: JSON.stringify({ code: useCode }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -207,7 +209,7 @@ export default function OrdersPage() {
           href="/r"
           className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
         >
-          Dashboard
+          Panel
         </Link>
       </div>
 
@@ -262,6 +264,27 @@ export default function OrdersPage() {
             Refrescar
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => setShowScanner(true)}
+          className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          Escanear QR del cliente
+        </button>
+        {showScanner && (
+          <QRScanner
+            onScan={(scannedCode) => {
+              setShowScanner(false);
+              const cleaned = scannedCode.replace(/\D/g, "");
+              if (cleaned) {
+                setCode(cleaned);
+                markDelivered(cleaned);
+              }
+            }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
 
         {message && (
           <div
