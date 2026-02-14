@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AddToCartButton from "./AddToCartButton";
 
 type ApiMenu = {
   id: string;
@@ -174,14 +175,18 @@ export default async function OfferDetailPage({
             </div>
           )}
 
-          {/* Botón principal */}
+          {/* Botón añadir al carrito */}
           <div className="mt-6">
-            <Link
-              href={`/checkout/oferta/${menu.id}`}
-              className="block w-full rounded-xl bg-emerald-600 py-3.5 text-center text-sm font-bold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20"
-            >
-              Reservar por {formatEuros(menu.priceCents)}
-            </Link>
+            <AddToCartButton
+              menuId={menu.id}
+              title={menu.title}
+              restaurant={menu.restaurant}
+              type={menu.type}
+              description={menu.description || undefined}
+              priceCents={menu.priceCents}
+              imageUrl={imgSrc}
+              priceLabel={formatEuros(menu.priceCents)}
+            />
           </div>
 
           {/* Botones secundarios */}
@@ -210,15 +215,7 @@ export default async function OfferDetailPage({
             )}
           </div>
 
-          {/* Volver a ofertas */}
-          <div className="mt-4">
-            <Link
-              href="/offers"
-              className="block w-full rounded-xl bg-white border border-slate-200 py-3 text-center text-sm font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition"
-            >
-              Seguir viendo ofertas
-            </Link>
-          </div>
+
         </div>
 
       </div>
