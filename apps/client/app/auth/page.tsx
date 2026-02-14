@@ -13,7 +13,6 @@ const API_BASE = (
 
 type Tab = "login" | "registro";
 
-// ─── Validación de contraseña ───────────────────────────
 type PasswordRule = { label: string; test: (p: string) => boolean };
 
 const PASSWORD_RULES: PasswordRule[] = [
@@ -28,8 +27,6 @@ function PasswordStrength({ password }: { password: string }) {
   const results = PASSWORD_RULES.map((r) => ({ ...r, ok: r.test(password) }));
   const passed = results.filter((r) => r.ok).length;
   const total = results.length;
-
-  // Barra de progreso
   const pct = Math.round((passed / total) * 100);
   const barColor =
     passed <= 1 ? "bg-rose-500" :
@@ -42,19 +39,18 @@ function PasswordStrength({ password }: { password: string }) {
 
   return (
     <div className="mt-2 space-y-2">
-      {/* Barra */}
-      <div className="h-1.5 w-full rounded-full bg-zinc-100 overflow-hidden">
+      <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
         <div className={"h-full rounded-full transition-all duration-300 " + barColor} style={{ width: pct + "%" }} />
       </div>
-
-      {/* Reglas */}
       <div className="grid grid-cols-1 gap-1">
         {results.map((r) => (
           <div key={r.label} className="flex items-center gap-2">
-            <span className={"text-xs " + (r.ok ? "text-emerald-600" : "text-zinc-400")}>
-              {r.ok ? "✓" : "○"}
-            </span>
-            <span className={"text-xs " + (r.ok ? "text-emerald-700 font-medium" : "text-zinc-400")}>
+            {r.ok ? (
+              <svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+            ) : (
+              <svg className="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><circle cx="12" cy="12" r="9" /></svg>
+            )}
+            <span className={"text-xs " + (r.ok ? "text-emerald-700 font-medium" : "text-slate-400")}>
               {r.label}
             </span>
           </div>
@@ -74,11 +70,9 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Login
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
 
-  // Registro
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -98,24 +92,17 @@ export default function AuthPage() {
   async function handleLogin() {
     setError(null);
     setLoading(true);
-
     try {
       if (!loginEmail.trim() || !loginPass) throw new Error("Email y contraseña obligatorios");
-
       const res = await fetch(API_BASE + "/api/auth/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email: loginEmail.trim().toLowerCase(), password: loginPass }),
       });
-
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error al iniciar sesión");
-
-      if (json.accessToken) {
-        localStorage.setItem("bb_access_token", json.accessToken);
-      }
-
+      if (json.accessToken) localStorage.setItem("bb_access_token", json.accessToken);
       await refreshUser();
       router.push(redirect);
     } catch (e: any) {
@@ -128,7 +115,6 @@ export default function AuthPage() {
   async function handleRegister() {
     setError(null);
     setLoading(true);
-
     try {
       if (!regName.trim() || regName.trim().length < 2) throw new Error("Nombre obligatorio (mín. 2 caracteres)");
       if (!regEmail.trim() || !regEmail.includes("@")) throw new Error("Email inválido");
@@ -146,15 +132,10 @@ export default function AuthPage() {
           password: regPass,
         }),
       });
-
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error al registrarse");
+      if (json.accessToken) localStorage.setItem("bb_access_token", json.accessToken);
 
-      if (json.accessToken) {
-        localStorage.setItem("bb_access_token", json.accessToken);
-      }
-
-      // Guardar ciudad, dirección y CP si los puso
       const token = json.accessToken;
       if (token && (regCity.trim() || regAddress.trim() || regPostalCode.trim())) {
         fetch(API_BASE + "/api/customer/me/profile", {
@@ -177,204 +158,185 @@ export default function AuthPage() {
     }
   }
 
+  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 transition";
+
   const tabClass = (t: Tab) =>
-    "flex-1 py-2.5 text-sm font-semibold rounded-xl transition " +
-    (tab === t ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-700");
+    "flex-1 py-2.5 text-sm font-bold rounded-xl transition " +
+    (tab === t ? "bg-emerald-600 text-white shadow-sm" : "text-slate-500 hover:text-emerald-700");
 
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
-      <div className="text-center mb-6">
-        <Link href="/offers" className="text-sm text-zinc-500 hover:text-zinc-900">← Volver a ofertas</Link>
-      </div>
+    <main className="min-h-screen bg-[#fafdf7]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
 
-      <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-zinc-900">BuenBocado</h1>
-          <p className="mt-1 text-sm text-zinc-500">Ofertas exclusivas de restaurantes</p>
+      <div className="mx-auto max-w-[480px] px-4 py-8">
+
+        {/* Botón volver */}
+        <div className="mb-6">
+          <Link
+            href="/offers"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition shadow-sm"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Ofertas
+          </Link>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 rounded-xl bg-zinc-100 p-1 mb-6">
-          <button type="button" onClick={() => { setTab("login"); setError(null); }} className={tabClass("login")}>
-            Iniciar sesión
-          </button>
-          <button type="button" onClick={() => { setTab("registro"); setError(null); }} className={tabClass("registro")}>
-            Crear cuenta
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2 text-sm text-rose-700">
-            {error}
-          </div>
-        )}
-
-        {/* LOGIN */}
-        {tab === "login" && (
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Email</span>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="tu@email.com"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Contraseña</span>
-              <input
-                type="password"
-                value={loginPass}
-                onChange={(e) => setLoginPass(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              />
-            </label>
-
-            <button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-            >
-              {loading ? "Entrando…" : "Iniciar sesión"}
-            </button>
-
-            <p className="text-center text-xs text-zinc-400">
-              ¿No tienes cuenta?{" "}
-              <button type="button" onClick={() => setTab("registro")} className="font-semibold text-zinc-700 underline">
-                Regístrate
-              </button>
-            </p>
-          </div>
-        )}
-
-        {/* REGISTRO */}
-        {tab === "registro" && (
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Nombre completo *</span>
-              <input
-                type="text"
-                value={regName}
-                onChange={(e) => setRegName(e.target.value)}
-                placeholder="María García López"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Email *</span>
-              <input
-                type="email"
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-                placeholder="tu@email.com"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Teléfono</span>
-              <input
-                type="tel"
-                value={regPhone}
-                onChange={(e) => setRegPhone(e.target.value)}
-                placeholder="+34 600 000 000"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Dirección</span>
-              <input
-                type="text"
-                value={regAddress}
-                onChange={(e) => setRegAddress(e.target.value)}
-                placeholder="Calle, número, piso…"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-sm font-semibold text-zinc-700">Ciudad</span>
-                <input
-                  type="text"
-                  value={regCity}
-                  onChange={(e) => setRegCity(e.target.value)}
-                  placeholder="Ej: Málaga"
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-zinc-700">Código postal</span>
-                <input
-                  type="text"
-                  value={regPostalCode}
-                  onChange={(e) => setRegPostalCode(e.target.value)}
-                  placeholder="29001"
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-                />
-              </label>
+        <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
+          {/* Logo */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2.5 mb-2">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-600 text-sm font-extrabold text-white">BB</span>
             </div>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Contraseña *</span>
-              <input
-                type="password"
-                value={regPass}
-                onChange={(e) => setRegPass(e.target.value)}
-                placeholder="Crea una contraseña segura"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-              <PasswordStrength password={regPass} />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Repetir contraseña *</span>
-              <input
-                type="password"
-                value={regPass2}
-                onChange={(e) => setRegPass2(e.target.value)}
-                placeholder="Repite tu contraseña"
-                className={"mt-1 w-full rounded-xl border bg-white px-4 py-2.5 text-sm outline-none " +
-                  (regPass2.length === 0
-                    ? "border-zinc-200 focus:border-zinc-400"
-                    : passwordsMatch
-                      ? "border-emerald-300 focus:border-emerald-400"
-                      : "border-rose-300 focus:border-rose-400"
-                  )}
-                onKeyDown={(e) => e.key === "Enter" && handleRegister()}
-              />
-              {regPass2.length > 0 && !passwordsMatch && (
-                <p className="mt-1 text-xs text-rose-600">Las contraseñas no coinciden</p>
-              )}
-              {passwordsMatch && (
-                <p className="mt-1 text-xs text-emerald-600">✓ Las contraseñas coinciden</p>
-              )}
-            </label>
-
-            <button
-              onClick={handleRegister}
-              disabled={loading || !passwordValid || !passwordsMatch}
-              className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-            >
-              {loading ? "Creando cuenta…" : "Crear cuenta"}
-            </button>
-
-            <p className="text-center text-xs text-zinc-400">
-              ¿Ya tienes cuenta?{" "}
-              <button type="button" onClick={() => setTab("login")} className="font-semibold text-zinc-700 underline">
-                Inicia sesión
-              </button>
-            </p>
+            <h1 className="text-xl font-extrabold tracking-tight">Buen<span className="text-emerald-600">Bocado</span></h1>
+            <p className="mt-1 text-xs text-slate-400">Ofertas exclusivas de restaurantes</p>
           </div>
-        )}
+
+          {/* Tabs */}
+          <div className="flex gap-1.5 rounded-xl bg-slate-100 p-1 mb-6">
+            <button type="button" onClick={() => { setTab("login"); setError(null); }} className={tabClass("login")}>
+              Iniciar sesión
+            </button>
+            <button type="button" onClick={() => { setTab("registro"); setError(null); }} className={tabClass("registro")}>
+              Crear cuenta
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-sm text-rose-700 font-medium">
+              {error}
+            </div>
+          )}
+
+          {/* LOGIN */}
+          {tab === "login" && (
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Email</span>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="tu@email.com"
+                  className={inputClass}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Contraseña</span>
+                <input
+                  type="password"
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                  placeholder="Tu contraseña"
+                  className={inputClass}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                />
+              </label>
+
+              <button
+                onClick={handleLogin}
+                disabled={loading}
+                className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition shadow-lg shadow-emerald-600/20"
+              >
+                {loading ? "Entrando…" : "Iniciar sesión"}
+              </button>
+
+              <p className="text-center text-xs text-slate-400">
+                ¿No tienes cuenta?{" "}
+                <button type="button" onClick={() => setTab("registro")} className="font-bold text-emerald-600 hover:underline">
+                  Regístrate
+                </button>
+              </p>
+            </div>
+          )}
+
+          {/* REGISTRO */}
+          {tab === "registro" && (
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Nombre completo *</span>
+                <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="María García López" className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Email *</span>
+                <input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="tu@email.com" className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Teléfono</span>
+                <input type="tel" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="+34 600 000 000" className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Dirección</span>
+                <input type="text" value={regAddress} onChange={(e) => setRegAddress(e.target.value)} placeholder="Calle, número, piso…" className={inputClass} />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700">Ciudad</span>
+                  <input type="text" value={regCity} onChange={(e) => setRegCity(e.target.value)} placeholder="Ej: Málaga" className={inputClass} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-700">Código postal</span>
+                  <input type="text" value={regPostalCode} onChange={(e) => setRegPostalCode(e.target.value)} placeholder="29001" className={inputClass} />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Contraseña *</span>
+                <input type="password" value={regPass} onChange={(e) => setRegPass(e.target.value)} placeholder="Crea una contraseña segura" className={inputClass} />
+                <PasswordStrength password={regPass} />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-slate-700">Repetir contraseña *</span>
+                <input
+                  type="password"
+                  value={regPass2}
+                  onChange={(e) => setRegPass2(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                  className={
+                    "mt-1 w-full rounded-xl border bg-white px-4 py-2.5 text-sm outline-none transition " +
+                    (regPass2.length === 0
+                      ? "border-slate-200 focus:border-emerald-400"
+                      : passwordsMatch
+                        ? "border-emerald-300 focus:border-emerald-400"
+                        : "border-rose-300 focus:border-rose-400"
+                    )
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+                />
+                {regPass2.length > 0 && !passwordsMatch && (
+                  <p className="mt-1 text-xs text-rose-600">Las contraseñas no coinciden</p>
+                )}
+                {passwordsMatch && (
+                  <div className="mt-1 flex items-center gap-1">
+                    <svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <span className="text-xs text-emerald-600">Las contraseñas coinciden</span>
+                  </div>
+                )}
+              </label>
+
+              <button
+                onClick={handleRegister}
+                disabled={loading || !passwordValid || !passwordsMatch}
+                className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition shadow-lg shadow-emerald-600/20"
+              >
+                {loading ? "Creando cuenta…" : "Crear cuenta"}
+              </button>
+
+              <p className="text-center text-xs text-slate-400">
+                ¿Ya tienes cuenta?{" "}
+                <button type="button" onClick={() => setTab("login")} className="font-bold text-emerald-600 hover:underline">
+                  Inicia sesión
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
