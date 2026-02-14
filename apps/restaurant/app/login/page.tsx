@@ -44,7 +44,7 @@ export default function RestaurantLoginPage() {
         localStorage.setItem("bb_restaurant_user", JSON.stringify(json.user));
       }
 
-      router.push("/r");
+      window.location.href = "/r"; 
     } catch (err: any) {
       setError("Error de conexión. ¿Está la API arrancada?");
     } finally {
