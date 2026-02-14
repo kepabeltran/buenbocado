@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useCart } from "../_state/cart";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import React from "react";
 import type { ReactNode } from "react";
 
 type ApiMenu = {
@@ -72,61 +74,139 @@ function OfferCard({ m }: { m: ApiMenu }) {
   const mins = parseRemainingMinutes(m.timeRemaining);
   const isCritical = mins <= 30;
   const isHot = mins <= 60;
+  const { addOffer, restaurantId, getQty, clear } = useCart();
+  const [showConflict, setShowConflict] = useState(false);
+  const [added, setAdded] = useState(false);
+  const inCart = getQty("", m.id) > 0;
 
   const timeBg = isCritical ? "bg-rose-500" : isHot ? "bg-amber-500" : "bg-slate-600";
 
+  function handleAdd(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check restaurant conflict
+    if (restaurantId && restaurantId !== m.restaurant) {
+      setShowConflict(true);
+      return;
+    }
+    addOffer({
+      menuId: m.id,
+      title: m.title,
+      restaurant: m.restaurant,
+      type: m.type,
+      description: m.description || undefined,
+      priceCents: m.priceCents,
+      currency: "EUR",
+      imageUrl: m.imageUrl,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  }
+
+
+
   return (
-    <Link href={`/offers/${m.id}`} className="block group">
-      <div className="overflow-hidden rounded-2xl bg-white border border-slate-100 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-50 hover:-translate-y-0.5 active:scale-[0.98]">
-        {/* Imagen grande */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
-          {img ? (
-            <img src={img} alt={m.title} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
-          ) : (
-            <div className="h-full w-full grid place-items-center bg-gradient-to-br from-emerald-50 to-lime-50">
-              <span className="text-lg font-extrabold text-emerald-300">BB</span>
+    <>
+      <Link href={`/offers/${m.id}`} className="block group">
+        <div className="overflow-hidden rounded-2xl bg-white border border-slate-100 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-50 hover:-translate-y-0.5 active:scale-[0.98]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+            {img ? (
+              <img src={img} alt={m.title} className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+            ) : (
+              <div className="h-full w-full grid place-items-center bg-gradient-to-br from-emerald-50 to-lime-50">
+                <span className="text-lg font-extrabold text-emerald-300">BB</span>
+              </div>
+            )}
+            <div className="absolute top-2.5 left-2.5 flex gap-1.5">
+              <span className="rounded-full bg-white/90 backdrop-blur-sm px-2.5 py-0.5 text-[11px] font-bold text-slate-700 shadow-sm">
+                {dineIn ? "En local" : "Para llevar"}
+              </span>
             </div>
-          )}
-
-          {/* Badges sobre imagen */}
-          <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-            <span className="rounded-full bg-white/90 backdrop-blur-sm px-2.5 py-0.5 text-[11px] font-bold text-slate-700 shadow-sm">
-              {dineIn ? "En local" : "Para llevar"}
-            </span>
+            <div className="absolute top-2.5 right-2.5">
+              <span className={`rounded-full ${timeBg} px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm`}>
+                {m.timeRemaining}
+              </span>
+            </div>
           </div>
-          <div className="absolute top-2.5 right-2.5">
-            <span className={`rounded-full ${timeBg} px-2.5 py-0.5 text-[11px] font-bold text-white shadow-sm`}>
-              {m.timeRemaining}
-            </span>
+
+          <div className="p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-emerald-600">{m.restaurant}</p>
+                <p className="text-base font-extrabold text-slate-900 mt-0.5 truncate">{m.title}</p>
+                {m.description && (
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">{m.description}</p>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xl font-extrabold text-emerald-600">{formatEuros(m.priceCents)}</p>
+                {m.distanceKm != null && (
+                  <p className="text-[11px] text-slate-400 font-medium">{m.distanceKm.toFixed(1)} km</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <button
+                onClick={handleAdd}
+                className={"w-full rounded-xl py-2.5 text-center text-sm font-bold transition " + (
+                  added ? "bg-emerald-100 text-emerald-700" :
+                  inCart ? "bg-emerald-50 border border-emerald-200 text-emerald-700" :
+                  "bg-emerald-600 text-white hover:bg-emerald-700"
+                )}
+              >
+                {added ? "Añadido" : inCart ? `En el carrito (${getQty("", m.id)})` : "Añadir al carrito"}
+              </button>
+            </div>
           </div>
         </div>
+      </Link>
 
-        {/* Info */}
-        <div className="p-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-emerald-600">{m.restaurant}</p>
-              <p className="text-base font-extrabold text-slate-900 mt-0.5 truncate">{m.title}</p>
-              {m.description && (
-                <p className="text-xs text-slate-400 mt-0.5 truncate">{m.description}</p>
-              )}
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-xl font-extrabold text-emerald-600">{formatEuros(m.priceCents)}</p>
-              {m.distanceKm != null && (
-                <p className="text-[11px] text-slate-400 font-medium">{m.distanceKm.toFixed(1)} km</p>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <div className="w-full rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-bold text-white transition group-hover:bg-emerald-700">
-              Reservar ahora
+      {/* Modal conflicto restaurante */}
+      {showConflict && (
+        <div className="fixed inset-0 z-[60] bg-black/40 grid place-items-center px-4" onClick={() => setShowConflict(false)}>
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-base font-extrabold text-slate-900">Cambiar de restaurante?</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Ya tienes ofertas de <strong>{restaurantId}</strong>. Si añades de <strong>{m.restaurant}</strong> se vaciará el carrito.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConflict(false);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clear();
+                  addOffer({
+                    menuId: m.id,
+                    title: m.title,
+                    restaurant: m.restaurant,
+                    type: m.type,
+                    description: m.description || undefined,
+                    priceCents: m.priceCents,
+                    currency: "EUR",
+                    imageUrl: m.imageUrl,
+                  });
+                  setShowConflict(false);
+                  setAdded(true);
+                  setTimeout(() => setAdded(false), 1500);
+                }}
+                className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition"
+              >
+                Vaciar y añadir
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    </Link>
+      )}
+    </>
   );
 }
 
