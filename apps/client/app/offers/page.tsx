@@ -255,7 +255,7 @@ export default async function OffersPage({
 
               <div className="flex items-center gap-3">
                 <Link
-                  href="/r/login"
+                  href="http://localhost:3001/login" 
                   className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                 >
                   Soy restaurante

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../../_auth/AuthProvider";
 
 const API_BASE = (
@@ -28,7 +28,6 @@ function formatMoney(cents: number, currency = "EUR") {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency });
 }
 
-// Genera QR como SVG usando API pública (sin dependencias)
 function QRCode({ value, size = 200 }: { value: string; size?: number }) {
   return (
     <img
@@ -44,6 +43,7 @@ function QRCode({ value, size = 200 }: { value: string; size?: number }) {
 export default function CheckoutPage() {
   const params = useParams();
   const menuId = String(params?.id ?? "");
+  const router = useRouter();
   const { user, isLoggedIn, loading: authLoading, getToken } = useAuth();
 
   const [menu, setMenu] = useState<MenuInfo | null>(null);
@@ -51,17 +51,19 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Para usuarios no logueados (fallback)
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-
-  // Resultado
   const [orderResult, setOrderResult] = useState<{
     code: string;
     restaurant: string;
     menuTitle: string;
     total: string;
   } | null>(null);
+
+  // Redirigir a auth si no está logueado
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      router.push(`/auth?redirect=/checkout/oferta/${menuId}`);
+    }
+  }, [authLoading, isLoggedIn, router, menuId]);
 
   // Cargar info del menú
   const loadMenu = useCallback(async () => {
@@ -84,43 +86,19 @@ export default function CheckoutPage() {
     }
   }, [menuId]);
 
-  useEffect(() => { loadMenu(); }, [loadMenu]);
-
-  // Recuperar datos guardados para invitados
-  useEffect(() => {
-    if (typeof window === "undefined" || isLoggedIn) return;
-    const saved = localStorage.getItem("bb_customer");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.name) setGuestName(parsed.name);
-        if (parsed.email) setGuestEmail(parsed.email);
-      } catch { /* ignorar */ }
-    }
-  }, [isLoggedIn]);
+  useEffect(() => { if (isLoggedIn) loadMenu(); }, [loadMenu, isLoggedIn]);
 
   async function handleSubmit() {
-    if (!menu) return;
+    if (!menu || !user) return;
     setError(null);
     setSubmitting(true);
 
     try {
-      let customerName: string;
-      let customerEmail: string;
+      const customerName = user.name || user.email.split("@")[0];
+      const customerEmail = user.email;
 
-      if (isLoggedIn && user) {
-        customerName = user.name || user.email.split("@")[0];
-        customerEmail = user.email;
-      } else {
-        customerName = guestName.trim();
-        customerEmail = guestEmail.trim().toLowerCase();
-        if (!customerName || customerName.length < 2) throw new Error("Escribe tu nombre");
-        if (!customerEmail || !customerEmail.includes("@")) throw new Error("Escribe un email válido");
-        localStorage.setItem("bb_customer", JSON.stringify({ name: customerName, email: customerEmail }));
-      }
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
       const token = getToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = "Bearer " + token;
 
       const res = await fetch(API_BASE + "/api/orders", {
@@ -167,12 +145,10 @@ export default function CheckoutPage() {
             Muestra este código en {orderResult.restaurant} para recoger tu pedido.
           </p>
 
-          {/* QR */}
           <div className="mt-6">
             <QRCode value={orderResult.code} size={180} />
           </div>
 
-          {/* Código numérico */}
           <div className="mt-4 rounded-2xl bg-zinc-50 border border-zinc-200 py-4 px-4">
             <p className="text-xs uppercase tracking-widest text-zinc-500">Código de recogida</p>
             <p className="mt-1 text-4xl font-black tracking-[0.2em] text-zinc-900 font-mono">
@@ -214,12 +190,22 @@ export default function CheckoutPage() {
     );
   }
 
-  // ─── CARGANDO ────────────────────────────────────────
-  if (loading || authLoading) {
+  // ─── CARGANDO O REDIRIGIENDO ─────────────────────────
+  if (authLoading || !isLoggedIn) {
+    return (
+      <main className="mx-auto max-w-lg px-4 py-10">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm text-center">
+          <p className="text-sm text-zinc-500">Redirigiendo a inicio de sesión…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loading) {
     return (
       <main className="mx-auto max-w-lg px-4 py-10">
         <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-zinc-500">Cargando…</p>
+          <p className="text-sm text-zinc-500">Cargando oferta…</p>
         </div>
       </main>
     );
@@ -241,7 +227,7 @@ export default function CheckoutPage() {
     );
   }
 
-  // ─── FORMULARIO DE CHECKOUT ──────────────────────────
+  // ─── CONFIRMACIÓN DE RESERVA ─────────────────────────
   return (
     <main className="mx-auto max-w-lg px-4 py-10">
       <Link href="/offers" className="text-sm text-zinc-600 hover:text-zinc-900">
@@ -264,40 +250,11 @@ export default function CheckoutPage() {
         </div>
 
         {/* Info usuario logueado */}
-        {isLoggedIn && user ? (
-          <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
-            <p className="text-xs text-emerald-700">
-              Reservando como <strong>{user.name || user.email}</strong> ({user.email})
-            </p>
-          </div>
-        ) : (
-          /* Formulario para invitados */
-          <div className="mt-6 space-y-4">
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Tu nombre</span>
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Ej: María García"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-zinc-700">Tu email</span>
-              <input
-                type="email"
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                placeholder="Ej: maria@email.com"
-                className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-zinc-400"
-              />
-              <p className="mt-1 text-xs text-zinc-400">Te enviaremos el código de recogida aquí.</p>
-            </label>
-          </div>
-        )}
+        <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+          <p className="text-xs text-emerald-700">
+            Reservando como <strong>{user?.name || user?.email}</strong> ({user?.email})
+          </p>
+        </div>
 
         {error && (
           <div className="mt-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2 text-sm text-rose-700">
