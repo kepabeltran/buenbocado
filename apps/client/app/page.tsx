@@ -154,6 +154,136 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
   );
 }
 
+
+/* ─── Confeti con Canvas ─────────────────────── */
+function ConfettiCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    canvas.width = parent.offsetWidth;
+    canvas.height = parent.offsetHeight;
+
+    const colors = [
+      "#059669", "#10b981", "#34d399", "#6ee7b7",
+      "#a7f3d0", "#fbbf24", "#f59e0b", "#ffffff"
+    ];
+
+    type Particle = {
+      x: number; y: number;
+      w: number; h: number;
+      vx: number; vy: number;
+      rot: number; rotSpeed: number;
+      color: string;
+      opacity: number;
+      shape: "rect" | "circle" | "star";
+      wobble: number; wobbleSpeed: number;
+      gravity: number;
+      drag: number;
+    };
+
+    const particles: Particle[] = [];
+    const COUNT = 80;
+
+    for (let i = 0; i < COUNT; i++) {
+      const shape = Math.random() > 0.6 ? "circle" : Math.random() > 0.3 ? "rect" : "star";
+      particles.push({
+        x: canvas.width * 0.1 + Math.random() * canvas.width * 0.8,
+        y: -10 - Math.random() * canvas.height * 0.3,
+        w: 4 + Math.random() * 6,
+        h: shape === "rect" ? 6 + Math.random() * 10 : 4 + Math.random() * 6,
+        vx: (Math.random() - 0.5) * 4,
+        vy: 1 + Math.random() * 3,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.15,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        opacity: 0.8 + Math.random() * 0.2,
+        shape,
+        wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: 0.03 + Math.random() * 0.06,
+        gravity: 0.06 + Math.random() * 0.08,
+        drag: 0.98 + Math.random() * 0.015,
+      });
+    }
+
+    let frame = 0;
+    let raf: number;
+    const maxFrames = 180; // ~3 seconds at 60fps
+
+    function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const method = i === 0 ? "moveTo" : "lineTo";
+        ctx[method](cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function animate() {
+      frame++;
+      if (frame > maxFrames) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const fadeOut = frame > maxFrames * 0.7 ? 1 - (frame - maxFrames * 0.7) / (maxFrames * 0.3) : 1;
+
+      for (const p of particles) {
+        p.wobble += p.wobbleSpeed;
+        p.vx += Math.sin(p.wobble) * 0.12;
+        p.vy += p.gravity;
+        p.vx *= p.drag;
+        p.vy *= p.drag;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.rotSpeed;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = p.opacity * fadeOut;
+        ctx.fillStyle = p.color;
+
+        if (p.shape === "rect") {
+          // 3D ribbon effect - scale width based on rotation
+          const scaleX = Math.abs(Math.cos(p.rot * 2));
+          ctx.fillRect(-p.w / 2 * scaleX, -p.h / 2, p.w * scaleX, p.h);
+        } else if (p.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          drawStar(ctx, 0, 0, p.w / 2);
+        }
+
+        ctx.restore();
+      }
+
+      raf = requestAnimationFrame(animate);
+    }
+
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none z-10"
+      style={{ width: "100%", height: "100%" }}
+    />
+  );
+}
+
 /* ─── Página principal ───────────────────────────── */
 export default function LandingPage() {
   const [heroVisible, setHeroVisible] = useState(false);
@@ -174,7 +304,137 @@ export default function LandingPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const fullGreeting = greeting ? `${greeting.text}, ${greeting.name} ${greeting.emoji}` : "";
 
+  // Weather
+  const [weatherLine, setWeatherLine] = useState<string | null>(null);
+  const [weatherEmoji, setWeatherEmoji] = useState("");
+
   useEffect(() => {
+    if (!isLoggedIn) return;
+    async function fetchWeather() {
+      try {
+        const token = localStorage.getItem("bb_access_token");
+        if (!token) return;
+        const meRes = await fetch(API_BASE + "/api/auth/me", {
+          headers: { Authorization: "Bearer " + token },
+        });
+        const meJson = await meRes.json().catch(() => ({}));
+        const lat = meJson?.user?.lat;
+        const lng = meJson?.user?.lng;
+        const city = meJson?.user?.city || "";
+        if (!lat || !lng) return;
+
+        const wRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
+        );
+        const wJson = await wRes.json().catch(() => ({}));
+        const temp = wJson?.current?.temperature_2m;
+        const code = wJson?.current?.weather_code;
+        if (temp == null) return;
+
+        const h = new Date().getHours();
+        const round = Math.round(temp);
+
+        // Weather codes: 0-1 clear, 2-3 cloudy, 45-48 fog, 51-67 rain, 71-77 snow, 80-82 showers, 95-99 storm
+        const isRain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82);
+        const isStorm = code >= 95;
+        const isSnow = code >= 71 && code <= 77;
+        const isCloudy = code >= 2 && code <= 3;
+        const isFog = code >= 45 && code <= 48;
+        const isClear = code <= 1;
+
+        const cold = round < 12;
+        const warm = round >= 12 && round < 25;
+        const hot = round >= 25;
+
+        const isMorning = h >= 6 && h < 13;
+        const isLunch = h >= 13 && h < 16;
+        const isAfternoon = h >= 16 && h < 20;
+        const isNight = h >= 20 || h < 6;
+
+        let line = "";
+        let emoji = "";
+
+        if (isStorm) {
+          emoji = "⛈️";
+          line = isMorning
+            ? `${round}°C y tormenta${city ? " en " + city : ""}. Pide algo calentito y quédate a cubierto`
+            : isLunch
+            ? `${round}°C con tormenta. Perfecto para comer sin salir de casa`
+            : `${round}°C y tormenta${city ? " en " + city : ""}. Recoge tu pedido rápido y a disfrutar`;
+        } else if (isSnow) {
+          emoji = "🌨️";
+          line = `${round}°C y nieve${city ? " en " + city : ""}. Día de plato caliente y manta`;
+        } else if (isRain && cold) {
+          emoji = "🌧️";
+          line = isMorning
+            ? `${round}°C y lluvia${city ? " en " + city : ""}. Empieza el día con algo que reconforte`
+            : isLunch
+            ? `${round}°C y lluvia. Día perfecto para una comida casera sin cocinar`
+            : isNight
+            ? `${round}°C y lluvia. Cena lista para recoger sin mojarte mucho`
+            : `${round}°C y lluvia${city ? " en " + city : ""}. Sal, recoge y vuelve al calorcito`;
+        } else if (isRain && !cold) {
+          emoji = "🌦️";
+          line = isLunch
+            ? `${round}°C con algo de lluvia. Ahorra tiempo y recoge tu comida lista`
+            : `${round}°C y lluvia suave${city ? " en " + city : ""}. Un paseo rápido y comes de restaurante`;
+        } else if (isFog) {
+          emoji = "🌫️";
+          line = `${round}°C con niebla${city ? " en " + city : ""}. Algo calentito te sentará genial`;
+        } else if (cold && isClear) {
+          emoji = "❄️";
+          line = isMorning
+            ? `${round}°C y cielos despejados${city ? " en " + city : ""}. Arranca el día con energía`
+            : isLunch
+            ? `Solo ${round}°C pero sol. Recoge tu plato y come como un rey`
+            : isNight
+            ? `${round}°C esta noche. Cena de restaurante a precio reducido, ¿quién dice que no?`
+            : `${round}°C pero con sol${city ? " en " + city : ""}. Un paseo y a comer bien`;
+        } else if (cold && isCloudy) {
+          emoji = "☁️";
+          line = isLunch
+            ? `${round}°C y nublado. Día de comfort food sin complicarte`
+            : `${round}°C y gris${city ? " en " + city : ""}. Anímate con un buen plato a mitad de precio`;
+        } else if (hot && isClear) {
+          emoji = "☀️";
+          line = isMorning
+            ? `${round}°C y sol${city ? " en " + city : ""}. Pide algo fresquito para el mediodía`
+            : isLunch
+            ? `${round}°C al sol. Algo ligero y fresco te viene perfecto`
+            : isAfternoon
+            ? `${round}°C todavía${city ? " en " + city : ""}. Merienda o cena temprana a buen precio`
+            : `${round}°C esta noche. Cena ligera de restaurante sin encender el horno`;
+        } else if (hot) {
+          emoji = "🌡️";
+          line = `${round}°C${city ? " en " + city : ""}. Demasiado calor para cocinar, ¿no crees?`;
+        } else if (warm && isClear) {
+          emoji = "🌤️";
+          line = isMorning
+            ? `${round}°C con sol${city ? " en " + city : ""}. Buen día para recoger tu pedido paseando`
+            : isLunch
+            ? `${round}°C y buen tiempo. Come de restaurante pagando menos`
+            : isNight
+            ? `${round}°C esta noche${city ? " en " + city : ""}. Sal a dar un paseo y vuelve con cena`
+            : `${round}°C y sol. El tiempo perfecto para un capricho gastronómico`;
+        } else {
+          emoji = "🍽️";
+          line = isLunch
+            ? `${round}°C${city ? " en " + city : ""}. Hora de comer bien sin gastar de más`
+            : isMorning
+            ? `${round}°C${city ? " en " + city : ""}. Las mejores ofertas del día te esperan`
+            : `${round}°C${city ? " en " + city : ""}. Comida de restaurante a precio reducido`;
+        }
+
+        setWeatherLine(line);
+        setWeatherEmoji(emoji);
+      } catch (e) {
+        // silently fail
+      }
+    }
+    fetchWeather();
+  }, [isLoggedIn]);
+
+    useEffect(() => {
     if (!greeting || !heroVisible) return;
     let i = 0;
     setTypedText("");
@@ -238,26 +498,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-100/40 blur-3xl" />
           <div className="absolute top-40 -left-20 w-[300px] h-[300px] rounded-full bg-lime-100/30 blur-3xl" />
-          {showConfetti && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full animate-bounce"
-                  style={{
-                    width: 6 + Math.random() * 6,
-                    height: 6 + Math.random() * 6,
-                    left: `${10 + Math.random() * 80}%`,
-                    top: `${Math.random() * 60}%`,
-                    backgroundColor: [`#059669`, `#10b981`, `#34d399`, `#6ee7b7`, `#a7f3d0`][Math.floor(Math.random() * 5)],
-                    opacity: 0.7 + Math.random() * 0.3,
-                    animationDuration: `${0.6 + Math.random() * 1.2}s`,
-                    animationDelay: `${Math.random() * 0.5}s`,
-                  }}
-                />
-              ))}
-            </div>
-          )}
+{showConfetti && <ConfettiCanvas />}
         </div>
         <div className="relative mx-auto max-w-6xl grid md:grid-cols-2 gap-12 items-center">
           <div>
@@ -280,6 +521,12 @@ export default function LandingPage() {
                     <><span className="text-emerald-600 font-extrabold text-xl">{offers.length} ofertas</span> te esperan cerca</>
                   ) : "Descubre ofertas de restaurantes a precio reducido"}
                 </p>
+                {weatherLine && (
+                  <div className={"mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/80 backdrop-blur border border-emerald-100 px-4 py-2.5 shadow-sm transition-all duration-1000 delay-700 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+                    <span className="text-lg">{weatherEmoji}</span>
+                    <span className="text-sm text-slate-600 leading-snug">{weatherLine}</span>
+                  </div>
+                )}
               </>
             ) : (
               <>
