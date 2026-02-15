@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "../_state/cart";
 import { useAuth } from "../_auth/AuthProvider";
 
@@ -42,6 +42,21 @@ export default function CartPage() {
   const router = useRouter();
 
   const [submitting, setSubmitting] = useState(false);
+  const [urgent, setUrgent] = useState(false);
+
+  useEffect(() => {
+    if (list.length === 0) { setUrgent(false); return; }
+    function check() {
+      const oldest = list.reduce((min, i) => {
+        const t = new Date(i.addedAt).getTime();
+        return t < min ? t : min;
+      }, Infinity);
+      setUrgent(Date.now() - oldest > 10 * 60 * 1000);
+    }
+    check();
+    const timer = setInterval(check, 15000);
+    return () => clearInterval(timer);
+  }, [list]);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<OrderResult[]>([]);
 
@@ -169,7 +184,17 @@ export default function CartPage() {
         </div>
 
         <h1 className="text-xl font-extrabold text-slate-900 mb-1">Tu carrito</h1>
-        <p className="text-xs text-slate-400 mb-5">{restaurant} — {count} {count === 1 ? "artículo" : "artículos"}</p>
+        <p className="text-xs text-slate-400 mb-3">{restaurant} — {count} {count === 1 ? "artículo" : "artículos"}</p>
+
+        {urgent && (
+          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3">
+            <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <div>
+              <p className="text-sm font-bold text-amber-800">Tus ofertas pueden agotarse</p>
+              <p className="text-xs text-amber-600">Llevas más de 10 minutos sin finalizar la compra.</p>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           {list.map((item) => {

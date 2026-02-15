@@ -117,25 +117,27 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
 
   return (
     <div className="relative mx-auto max-w-[320px]">
-      <div className={`rounded-3xl bg-white p-4 shadow-2xl shadow-slate-900/8 border border-slate-100/80 transition-all duration-300 ${fade ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}>
-        <div className="h-44 rounded-2xl overflow-hidden bg-slate-100">
-          {img ? <img src={img} alt={o.title} className="h-full w-full object-cover" /> : (
-            <div className="h-full w-full grid place-items-center bg-gradient-to-br from-emerald-50 to-lime-50">
-              <span className="text-emerald-600 font-extrabold">BB</span>
-            </div>
-          )}
+      <Link href={`/offers/${o.id}`} className="block">
+        <div className={`rounded-3xl bg-white p-4 shadow-2xl shadow-slate-900/8 border border-slate-100/80 transition-all duration-300 hover:shadow-3xl hover:-translate-y-1 ${fade ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}>
+          <div className="h-44 rounded-2xl overflow-hidden bg-slate-100">
+            {img ? <img src={img} alt={o.title} className="h-full w-full object-cover" /> : (
+              <div className="h-full w-full grid place-items-center bg-gradient-to-br from-emerald-50 to-lime-50">
+                <span className="text-emerald-600 font-extrabold">BB</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-3">
+            <p className="text-xs font-bold text-emerald-600">{o.restaurant}</p>
+            <p className="text-base font-extrabold mt-0.5">{o.title}</p>
+            {o.description && <p className="text-xs text-slate-400 mt-0.5 truncate">{o.description}</p>}
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">{o.timeRemaining}</span>
+            <span className="text-lg font-extrabold text-emerald-600">{formatEuros(o.priceCents)}</span>
+          </div>
+          <div className="mt-3 rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-bold text-white hover:bg-emerald-700 transition">Ver oferta</div>
         </div>
-        <div className="mt-3">
-          <p className="text-xs font-bold text-emerald-600">{o.restaurant}</p>
-          <p className="text-base font-extrabold mt-0.5">{o.title}</p>
-          {o.description && <p className="text-xs text-slate-400 mt-0.5 truncate">{o.description}</p>}
-        </div>
-        <div className="mt-3 flex items-center justify-between">
-          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">{o.timeRemaining}</span>
-          <span className="text-lg font-extrabold text-emerald-600">{formatEuros(o.priceCents)}</span>
-        </div>
-        <div className="mt-3 rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-bold text-white">Añadir al carrito</div>
-      </div>
+      </Link>
       {offers.length > 1 && (
         <div className="flex justify-center gap-1.5 mt-4">
           {offers.map((_, i) => (
