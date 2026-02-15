@@ -157,35 +157,46 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
 
 
 /* ─── Contador animado ────────────────────────── */
-function AnimatedCounter({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
+function AnimatedCounter({ end, suffix = "", duration = 2000, repeatInterval = 20000 }: { end: number; suffix?: string; duration?: number; repeatInterval?: number }) {
   const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [cycle, setCycle] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setStarted(true); obs.disconnect(); } },
-      { threshold: 0.5 }
+      ([entry]) => { setVisible(entry.isIntersecting); },
+      { threshold: 0.3 }
     );
     obs.observe(ref.current);
     return () => obs.disconnect();
   }, []);
 
+  // Repeat cycle while visible
   useEffect(() => {
-    if (!started) return;
+    if (!visible) return;
+    setCycle((c) => c + 1);
+    const timer = setInterval(() => setCycle((c) => c + 1), repeatInterval);
+    return () => clearInterval(timer);
+  }, [visible, repeatInterval]);
+
+  // Animate count on each cycle
+  useEffect(() => {
+    if (cycle === 0) return;
+    setCount(0);
     let startTime: number;
     let raf: number;
     function step(ts: number) {
       if (!startTime) startTime = ts;
       const progress = Math.min((ts - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
       setCount(Math.round(eased * end));
       if (progress < 1) raf = requestAnimationFrame(step);
     }
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [started, end, duration]);
+  }, [cycle, end, duration]);
 
   return <span ref={ref}>{count}{suffix}</span>;
 }
