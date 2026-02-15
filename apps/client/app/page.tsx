@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "./_auth/AuthProvider";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL ??
@@ -156,6 +157,38 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
 /* ─── Página principal ───────────────────────────── */
 export default function LandingPage() {
   const [heroVisible, setHeroVisible] = useState(false);
+  const { user, isLoggedIn } = useAuth();
+
+  // Greeting
+  const greeting = useMemo(() => {
+    if (!isLoggedIn || !user?.name) return null;
+    const h = new Date().getHours();
+    const firstName = user.name.split(" ")[0];
+    if (h < 13) return { text: "Buenos días", emoji: "☀️", name: firstName };
+    if (h < 20) return { text: "Buenas tardes", emoji: "🌤️", name: firstName };
+    return { text: "Buenas noches", emoji: "🌙", name: firstName };
+  }, [isLoggedIn, user]);
+
+  // Typewriter
+  const [typedText, setTypedText] = useState("");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const fullGreeting = greeting ? `${greeting.text}, ${greeting.name} ${greeting.emoji}` : "";
+
+  useEffect(() => {
+    if (!greeting || !heroVisible) return;
+    let i = 0;
+    setTypedText("");
+    const timer = setInterval(() => {
+      i++;
+      setTypedText(fullGreeting.slice(0, i));
+      if (i >= fullGreeting.length) {
+        clearInterval(timer);
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 2000);
+      }
+    }, 45);
+    return () => clearInterval(timer);
+  }, [greeting, heroVisible, fullGreeting]);
   const [scrollY, setScrollY] = useState(0);
   const [offers, setOffers] = useState<Offer[]>([]);
 
@@ -191,6 +224,11 @@ export default function LandingPage() {
             <a href="#como-funciona" className="text-sm font-medium text-slate-500 hover:text-emerald-700 transition hidden md:inline">Cómo funciona</a>
             <a href="/restaurantes" className="text-sm font-medium text-slate-500 hover:text-emerald-700 transition hidden md:inline">Restaurantes</a>
             <Link href="/offers" className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20">Ver ofertas</Link>
+            {isLoggedIn ? (
+              <Link href="/orders" className="text-sm font-bold text-emerald-600 hover:text-emerald-800 transition hidden md:inline">{user?.name?.split(" ")[0]}</Link>
+            ) : (
+              <Link href="/auth" className="text-sm font-medium text-slate-500 hover:text-emerald-700 transition hidden md:inline">Acceder</Link>
+            )}
           </div>
         </div>
       </nav>
@@ -200,6 +238,26 @@ export default function LandingPage() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-100/40 blur-3xl" />
           <div className="absolute top-40 -left-20 w-[300px] h-[300px] rounded-full bg-lime-100/30 blur-3xl" />
+          {showConfetti && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full animate-bounce"
+                  style={{
+                    width: 6 + Math.random() * 6,
+                    height: 6 + Math.random() * 6,
+                    left: `${10 + Math.random() * 80}%`,
+                    top: `${Math.random() * 60}%`,
+                    backgroundColor: [`#059669`, `#10b981`, `#34d399`, `#6ee7b7`, `#a7f3d0`][Math.floor(Math.random() * 5)],
+                    opacity: 0.7 + Math.random() * 0.3,
+                    animationDuration: `${0.6 + Math.random() * 1.2}s`,
+                    animationDelay: `${Math.random() * 0.5}s`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <div className="relative mx-auto max-w-6xl grid md:grid-cols-2 gap-12 items-center">
           <div>
@@ -209,15 +267,39 @@ export default function LandingPage() {
                 {offers.length > 0 ? `${offers.length} ofertas disponibles ahora` : "Ofertas en tiempo real"}
               </span>
             </div>
-            <h1 className={"text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.08] tracking-tight transition-all duration-700 delay-100 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
-              Comida de{" "}<span className="text-emerald-600">restaurante</span>{" "}a precio reducido
-            </h1>
-            <p className={"mt-5 text-base md:text-lg text-slate-500 max-w-md leading-relaxed transition-all duration-700 delay-200 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
-              Reserva platos con descuento de restaurantes cerca de ti. Recoge en minutos con tu código QR.
-            </p>
+            {greeting ? (
+              <>
+                <h1 className={"text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.08] tracking-tight transition-all duration-700 delay-100 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
+                  <span className="relative">
+                    {typedText}
+                    <span className="animate-pulse text-emerald-400">|</span>
+                  </span>
+                </h1>
+                <p className={"mt-5 text-base md:text-lg text-slate-500 max-w-md leading-relaxed transition-all duration-700 delay-200 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
+                  {offers.length > 0 ? (
+                    <><span className="text-emerald-600 font-extrabold text-xl">{offers.length} ofertas</span> te esperan cerca</>
+                  ) : "Descubre ofertas de restaurantes a precio reducido"}
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className={"text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.08] tracking-tight transition-all duration-700 delay-100 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
+                  Comida de{" "}<span className="text-emerald-600">restaurante</span>{" "}a precio reducido
+                </h1>
+                <p className={"mt-5 text-base md:text-lg text-slate-500 max-w-md leading-relaxed transition-all duration-700 delay-200 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
+                  Reserva platos con descuento de restaurantes cerca de ti. Recoge en minutos con tu código QR.
+                </p>
+              </>
+            )}
             <div className={"mt-8 flex flex-wrap gap-3 transition-all duration-700 delay-300 " + (heroVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
-              <Link href="/offers" className="rounded-full bg-emerald-600 px-7 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 transition shadow-xl shadow-emerald-600/20 hover:shadow-emerald-600/35 hover:-translate-y-0.5">Explorar ofertas</Link>
-              <a href="#como-funciona" className="rounded-full border-2 border-slate-200 bg-white px-7 py-3.5 text-sm font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition">Cómo funciona</a>
+              <Link href="/offers" className="rounded-full bg-emerald-600 px-7 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 transition shadow-xl shadow-emerald-600/20 hover:shadow-emerald-600/35 hover:-translate-y-0.5">
+                {isLoggedIn ? "Ver mis ofertas" : "Explorar ofertas"}
+              </Link>
+              {isLoggedIn ? (
+                <Link href="/orders" className="rounded-full border-2 border-slate-200 bg-white px-7 py-3.5 text-sm font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition">Mis pedidos</Link>
+              ) : (
+                <a href="#como-funciona" className="rounded-full border-2 border-slate-200 bg-white px-7 py-3.5 text-sm font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition">Cómo funciona</a>
+              )}
             </div>
 
 

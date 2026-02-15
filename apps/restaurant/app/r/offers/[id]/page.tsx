@@ -165,7 +165,7 @@ export default function EditOfferPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">
           Editar oferta
         </p>
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-2xl font-extrabold text-slate-900">
           {menu?.title || "Cargando…"}
         </h1>
       </header>
@@ -173,7 +173,7 @@ export default function EditOfferPage() {
       <div className="flex flex-wrap gap-2">
         <Link
           href="/r/offers"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           ← Volver a ofertas
         </Link>
@@ -184,10 +184,10 @@ export default function EditOfferPage() {
         <Card className={expired ? "bg-rose-50 border-rose-200" : "bg-emerald-50 border-emerald-200"}>
           <div className="flex items-center justify-between p-1">
             <div>
-              <p className="text-sm font-semibold text-zinc-900">
+              <p className="text-sm font-semibold text-slate-900">
                 {expired ? "Tiempo de edición agotado" : "Tiempo restante para editar"}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-slate-400">
                 {expired
                   ? "Ya no puedes modificar esta oferta. Puedes duplicarla si necesitas cambios."
                   : "Puedes modificar la oferta durante los 10 primeros minutos tras publicarla."}
@@ -201,7 +201,7 @@ export default function EditOfferPage() {
       )}
 
       {loading ? (
-        <Card className="p-4"><p className="text-sm text-zinc-500">Cargando…</p></Card>
+        <Card className="p-4"><p className="text-sm text-slate-400">Cargando…</p></Card>
       ) : error && !menu ? (
         <Card className="p-4 bg-rose-50 text-sm text-rose-700">{error}</Card>
       ) : menu ? (
@@ -209,9 +209,9 @@ export default function EditOfferPage() {
           <div className="space-y-4 p-1">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-zinc-700">Tipo</span>
+                <span className="text-sm font-semibold text-slate-600">Tipo</span>
                 <select
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
                   value={type}
                   onChange={(e) => setType(e.target.value as any)}
                   disabled={expired}
@@ -222,9 +222,9 @@ export default function EditOfferPage() {
               </label>
 
               <label className="space-y-1">
-                <span className="text-sm font-semibold text-zinc-700">Cantidad</span>
+                <span className="text-sm font-semibold text-slate-600">Cantidad</span>
                 <input
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
                   type="number"
                   min={0}
                   value={quantity}
@@ -235,9 +235,9 @@ export default function EditOfferPage() {
             </div>
 
             <label className="space-y-1 block">
-              <span className="text-sm font-semibold text-zinc-700">Título</span>
+              <span className="text-sm font-semibold text-slate-600">Título</span>
               <input
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={expired}
@@ -245,9 +245,9 @@ export default function EditOfferPage() {
             </label>
 
             <label className="space-y-1 block">
-              <span className="text-sm font-semibold text-zinc-700">Descripción</span>
+              <span className="text-sm font-semibold text-slate-600">Descripción</span>
               <textarea
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -256,9 +256,9 @@ export default function EditOfferPage() {
             </label>
 
             <label className="space-y-1 block">
-              <span className="text-sm font-semibold text-zinc-700">Precio (€)</span>
+              <span className="text-sm font-semibold text-slate-600">Precio (€)</span>
               <input
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 disabled={expired}
@@ -285,7 +285,7 @@ export default function EditOfferPage() {
               )}
               <Link
                 href="/r/offers"
-                className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 {expired ? "Volver" : "Cancelar"}
               </Link>

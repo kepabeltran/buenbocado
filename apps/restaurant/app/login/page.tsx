@@ -53,15 +53,15 @@ export default function RestaurantLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-zinc-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#fafdf7] to-emerald-50/30 px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-zinc-900 text-2xl font-bold text-white">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-600 text-2xl font-extrabold text-white">
             BB
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-zinc-900">Portal Restaurante</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="mt-4 text-2xl font-extrabold text-slate-900">Portal Restaurante</h1>
+          <p className="mt-1 text-sm text-slate-400">
             Accede para gestionar tus ofertas y pedidos
           </p>
         </div>
@@ -69,7 +69,7 @@ export default function RestaurantLoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Email</label>
+            <label className="block text-sm font-medium text-slate-600">Email</label>
             <input
               type="email"
               value={email}
@@ -77,12 +77,12 @@ export default function RestaurantLoginPage() {
               required
               autoComplete="email"
               placeholder="tu@restaurante.com"
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Contraseña</label>
+            <label className="block text-sm font-medium text-slate-600">Contraseña</label>
             <input
               type="password"
               value={password}
@@ -90,7 +90,7 @@ export default function RestaurantLoginPage() {
               required
               autoComplete="current-password"
               placeholder="••••••••"
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
             />
           </div>
 
@@ -103,13 +103,13 @@ export default function RestaurantLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:opacity-95 active:opacity-90 disabled:opacity-50"
+            className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition active:opacity-90 disabled:opacity-50"
           >
             {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-zinc-400">
+        <p className="mt-6 text-center text-xs text-slate-300">
           ¿No tienes cuenta? Contacta con el administrador.
         </p>
       </div>

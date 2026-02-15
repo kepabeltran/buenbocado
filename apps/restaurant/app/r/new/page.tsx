@@ -195,8 +195,8 @@ export default function NewMenuPage() {
       className={
         "rounded-xl px-3 py-1.5 text-xs font-semibold transition " +
         (timeMode === m
-          ? "bg-zinc-900 text-white"
-          : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50")
+          ? "bg-emerald-600 text-white"
+          : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50")
       }
     >
       {label}
@@ -209,8 +209,8 @@ export default function NewMenuPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">
           Restaurante
         </p>
-        <h1 className="text-3xl font-bold text-slate-900">Crear oferta</h1>
-        <p className="text-sm text-zinc-500">
+        <h1 className="text-2xl font-extrabold text-slate-900">Crear oferta</h1>
+        <p className="text-sm text-slate-400">
           Publica una oferta con foto, precio y tiempo disponible.
         </p>
       </header>
@@ -218,13 +218,13 @@ export default function NewMenuPage() {
       <div className="flex flex-wrap gap-2">
         <Link
           href="/r/offers"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           Mis ofertas
         </Link>
         <Link
           href="/r"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           Dashboard
         </Link>
@@ -234,9 +234,9 @@ export default function NewMenuPage() {
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-zinc-700">Tipo</span>
+              <span className="text-sm font-semibold text-slate-600">Tipo</span>
               <select
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={type}
                 onChange={(e) => setType(e.target.value as any)}
               >
@@ -246,9 +246,9 @@ export default function NewMenuPage() {
             </label>
 
             <label className="space-y-1">
-              <span className="text-sm font-semibold text-zinc-700">Cantidad</span>
+              <span className="text-sm font-semibold text-slate-600">Cantidad</span>
               <input
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                 type="number"
                 min={1}
                 value={quantity}
@@ -258,9 +258,9 @@ export default function NewMenuPage() {
           </div>
 
           <label className="space-y-1 block">
-            <span className="text-sm font-semibold text-zinc-700">Título</span>
+            <span className="text-sm font-semibold text-slate-600">Título</span>
             <input
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
               placeholder="Ej: Pack sushi sorpresa"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -268,9 +268,9 @@ export default function NewMenuPage() {
           </label>
 
           <label className="space-y-1 block">
-            <span className="text-sm font-semibold text-zinc-700">Descripción</span>
+            <span className="text-sm font-semibold text-slate-600">Descripción</span>
             <textarea
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
               rows={3}
               placeholder="Qué incluye, alérgenos, etc."
               value={description}
@@ -279,9 +279,9 @@ export default function NewMenuPage() {
           </label>
 
           <label className="space-y-1 block">
-            <span className="text-sm font-semibold text-zinc-700">Precio (€)</span>
+            <span className="text-sm font-semibold text-slate-600">Precio (€)</span>
             <input
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
               placeholder="8,50"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -289,8 +289,8 @@ export default function NewMenuPage() {
           </label>
 
           {/* ─── TIEMPO ─────────────────────────────── */}
-          <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-semibold text-zinc-700">Tiempo de la oferta</p>
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-600">Tiempo de la oferta</p>
 
             <div className="flex gap-2">
               {timeModeBtn("duration", "Duración")}
@@ -299,10 +299,10 @@ export default function NewMenuPage() {
 
             {/* Inicio */}
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-zinc-600">Inicio</span>
+              <span className="text-xs font-semibold text-slate-500">Inicio</span>
               <input
                 type="datetime-local"
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
               />
@@ -311,7 +311,7 @@ export default function NewMenuPage() {
             {/* Duración preset */}
             {timeMode === "duration" && (
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-zinc-600">Duración</span>
+                <span className="text-xs font-semibold text-slate-500">Duración</span>
                 <div className="flex flex-wrap gap-2">
                   {DURATION_PRESETS.map((p) => (
                     <button
@@ -321,8 +321,8 @@ export default function NewMenuPage() {
                       className={
                         "rounded-xl px-3 py-2 text-sm font-semibold transition " +
                         (durationMins === p.value
-                          ? "bg-zinc-900 text-white"
-                          : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50")
+                          ? "bg-emerald-600 text-white"
+                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50")
                       }
                     >
                       {p.label}
@@ -333,21 +333,21 @@ export default function NewMenuPage() {
                   type="number"
                   min={10}
                   max={720}
-                  className="w-32 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                  className="w-32 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   value={durationMins}
                   onChange={(e) => setDurationMins(Number(e.target.value))}
                 />
-                <span className="ml-2 text-xs text-zinc-500">minutos</span>
+                <span className="ml-2 text-xs text-slate-400">minutos</span>
               </div>
             )}
 
             {/* Hora exacta */}
             {timeMode === "exact" && (
               <label className="space-y-1 block">
-                <span className="text-xs font-semibold text-zinc-600">Fin</span>
+                <span className="text-xs font-semibold text-slate-500">Fin</span>
                 <input
                   type="datetime-local"
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                 />
@@ -355,21 +355,21 @@ export default function NewMenuPage() {
             )}
 
             {/* Preview */}
-            <div className="rounded-xl bg-white border border-zinc-200 px-3 py-2 text-xs text-zinc-600">
-              La oferta estará disponible hasta: <span className="font-semibold text-zinc-900">{computedEndLabel}</span>
+            <div className="rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs text-slate-500">
+              La oferta estará disponible hasta: <span className="font-semibold text-slate-900">{computedEndLabel}</span>
               <br />
-              <span className="text-zinc-400">+ 30 min de gracia para recogida</span>
+              <span className="text-slate-300">+ 30 min de gracia para recogida</span>
             </div>
           </div>
 
 
           {/* ─── FOTO ───────────────────────────────── */}
           <div className="space-y-2">
-            <span className="text-sm font-semibold text-zinc-700">Foto</span>
+            <span className="text-sm font-semibold text-slate-600">Foto</span>
 
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-              <p className="text-xs font-semibold text-zinc-700">Mini guía</p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-zinc-500">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-600">Mini guía</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-slate-400">
                 <li>Horizontal si puedes.</li>
                 <li>Plato centrado, 70–80% del encuadre.</li>
                 <li>Sin flash, luz natural.</li>
@@ -378,7 +378,7 @@ export default function NewMenuPage() {
 
               <div className="mt-3">
                 <div
-                  className="relative w-full overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-white"
+                  className="relative w-full overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white"
                   style={{ aspectRatio: "16 / 10" }}
                 >
                   {preview ? (
@@ -388,7 +388,7 @@ export default function NewMenuPage() {
                       className="absolute inset-0 h-full w-full object-cover object-center"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-zinc-400">
+                    <div className="flex h-full items-center justify-center text-xs text-slate-300">
                       Encuadre recomendado (16:10)
                     </div>
                   )}
@@ -399,7 +399,7 @@ export default function NewMenuPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white active:scale-[0.99] disabled:opacity-60"
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white active:scale-[0.99] disabled:opacity-60"
                 onClick={() => cameraInputRef.current?.click()}
                 disabled={busy}
               >
@@ -407,13 +407,13 @@ export default function NewMenuPage() {
               </button>
               <button
                 type="button"
-                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 active:scale-[0.99] disabled:opacity-60"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 active:scale-[0.99] disabled:opacity-60"
                 onClick={() => galleryInputRef.current?.click()}
                 disabled={busy}
               >
                 Galería
               </button>
-              <span className="max-w-[240px] truncate text-xs text-zinc-500">
+              <span className="max-w-[240px] truncate text-xs text-slate-400">
                 {file ? file.name : "Ninguna seleccionada"}
               </span>
             </div>
@@ -433,7 +433,7 @@ export default function NewMenuPage() {
               accept="image/*"
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-zinc-400">Máx. 5MB. Se normaliza a JPG 16:10.</p>
+            <p className="text-xs text-slate-300">Máx. 5MB. Se normaliza a JPG 16:10.</p>
           </div>
 
           {/* ─── ERRORES / ÉXITO ────────────────────── */}
@@ -454,7 +454,7 @@ export default function NewMenuPage() {
               {busy ? "Publicando…" : "Publicar oferta"}
             </Button>
             <Link
-              className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               href="/r/offers"
             >
               Cancelar
