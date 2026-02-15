@@ -1,7 +1,7 @@
 /**
  * cron.ts — Tareas automáticas periódicas
  *
- * - Cancelar pedidos CREATED con más de 2 horas (no-show)
+ * - Cancelar pedidos CREATED o CONFIRMED con más de 2 horas (no-show)
  * - Se ejecuta cada 10 minutos
  */
 import type { PrismaClient } from "@prisma/client";
@@ -18,7 +18,7 @@ export function startCronJobs(prisma: PrismaClient) {
 
       const result = await prisma.order.updateMany({
         where: {
-          status: "CREATED",
+          status: { in: ["CREATED", "CONFIRMED"] },
           createdAt: { lt: cutoff },
         },
         data: {

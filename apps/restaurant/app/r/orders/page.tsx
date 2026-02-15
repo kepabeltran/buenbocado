@@ -6,7 +6,7 @@ import { Card, Chip } from "@buenbocado/ui";
 import { useAuth } from "../../_auth/AuthProvider";
 import QRScanner from "../_components/QRScanner";
 
-type OrderStatus = "CREATED" | "PREPARING" | "READY" | "DELIVERED";
+type OrderStatus = "CREATED" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED";
 
 type OrderDto = {
   id: string;
@@ -77,7 +77,7 @@ export default function OrdersPage() {
 
   const inProgress = useMemo(() => {
     return orders
-      .filter((o) => o.status !== "DELIVERED")
+      .filter((o) => o.status !== "DELIVERED" && o.status !== "CANCELLED")
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [orders]);
 
