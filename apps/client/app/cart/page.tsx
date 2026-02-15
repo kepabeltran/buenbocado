@@ -35,6 +35,7 @@ function QRCode({ value, size = 160 }: { value: string; size?: number }) {
 }
 
 type OrderResult = { code: string; menuTitle: string; total: string };
+type RestaurantInfo = { name: string; address: string | null };
 
 export default function CartPage() {
   const { list, count, setQty, clear } = useCart();
@@ -55,13 +56,31 @@ export default function CartPage() {
     }
     check();
     const timer = setInterval(check, 15000);
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, [list]);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<OrderResult[]>([]);
+  const [restaurantInfo, setRestaurantInfo] = useState<RestaurantInfo | null>(null);
 
   const totalCents = list.reduce((sum, i) => sum + i.priceCents * i.qty, 0);
   const restaurant = list.length > 0 ? list[0].restaurant : null;
+
+  // Fetch restaurant address when cart has items
+  useEffect(() => {
+    if (list.length === 0) return;
+    const menuId = list[0].menuId;
+    async function fetchAddress() {
+      try {
+        const res = await fetch(`${API_BASE}/api/menus/active?lat=0&lng=0`, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        const menu = (json?.data || []).find((m: any) => m.id === menuId);
+        if (menu?.restaurantAddress) {
+          setRestaurantInfo({ name: menu.restaurant, address: menu.restaurantAddress });
+        }
+      } catch {}
+    }
+    fetchAddress();
+  }, [list]);
 
   async function handleCheckout() {
     if (!isLoggedIn) {
@@ -108,6 +127,10 @@ export default function CartPage() {
 
   // ── CONFIRMACIÓN ──────────────────────────────
   if (results.length > 0) {
+    const mapsUrl = restaurantInfo?.address
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurantInfo.address)}`
+      : null;
+
     return (
       <main className="min-h-screen bg-[#fafdf7]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
@@ -120,6 +143,22 @@ export default function CartPage() {
               {results.length === 1 ? "Reserva confirmada" : `${results.length} reservas confirmadas`}
             </h1>
             <p className="mt-1.5 text-sm text-slate-400">Muestra estos códigos en el restaurante para recoger.</p>
+
+            {/* Dirección del restaurante */}
+            {restaurantInfo?.address && (
+              <div className="mt-4 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-left">
+                <div className="flex items-start gap-3">
+                  <svg className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium">Recoge en</p>
+                    <p className="text-sm font-bold text-slate-700">{restaurantInfo.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{restaurantInfo.address}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* QR codes */}
             <div className="mt-5 space-y-4">
               {results.map((r, i) => (
                 <div key={i} className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
@@ -130,7 +169,21 @@ export default function CartPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
+
+            {/* Cómo llegar */}
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Cómo llegar al restaurante
+              </a>
+            )}
+
+            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
               <p className="text-xs text-amber-700">También hemos enviado los códigos a tu email.</p>
             </div>
             <div className="mt-5">
@@ -185,6 +238,17 @@ export default function CartPage() {
 
         <h1 className="text-xl font-extrabold text-slate-900 mb-1">Tu carrito</h1>
         <p className="text-xs text-slate-400 mb-3">{restaurant} — {count} {count === 1 ? "artículo" : "artículos"}</p>
+
+        {/* Dirección del restaurante en el carrito */}
+        {restaurantInfo?.address && (
+          <div className="mb-4 rounded-xl bg-white border border-slate-100 px-4 py-3 flex items-start gap-3">
+            <svg className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Recoger en</p>
+              <p className="text-sm font-bold text-slate-700">{restaurantInfo.address}</p>
+            </div>
+          </div>
+        )}
 
         {urgent && (
           <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3">
