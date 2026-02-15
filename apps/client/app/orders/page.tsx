@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../_auth/AuthProvider";
 
@@ -31,6 +31,15 @@ type Order = {
   } | null;
 };
 
+type FilterKey = "all" | "active" | "delivered" | "cancelled";
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "active", label: "Activos" },
+  { key: "delivered", label: "Entregados" },
+  { key: "cancelled", label: "Cancelados" },
+];
+
 function formatMoney(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 }
@@ -55,13 +64,16 @@ function timeAgo(dateStr: string) {
 
 function statusLabel(s: string) {
   switch (s) {
-    case "PENDING": return { text: "Pendiente", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    case "CREATED": return { text: "Pendiente", color: "bg-amber-50 text-amber-700 border-amber-200" };
     case "CONFIRMED": return { text: "Confirmado", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
     case "DELIVERED": return { text: "Entregado", color: "bg-slate-100 text-slate-600 border-slate-200" };
     case "CANCELLED": return { text: "Cancelado", color: "bg-rose-50 text-rose-600 border-rose-200" };
-    case "NO_SHOW": return { text: "No recogido", color: "bg-rose-50 text-rose-600 border-rose-200" };
     default: return { text: s, color: "bg-slate-100 text-slate-600 border-slate-200" };
   }
+}
+
+function isActive(s: string) {
+  return s === "CREATED" || s === "CONFIRMED";
 }
 
 export default function OrdersPage() {
@@ -70,6 +82,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push("/auth?redirect=/orders");
@@ -94,6 +107,33 @@ export default function OrdersPage() {
     }
     load();
   }, [isLoggedIn, getToken]);
+
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case "active": return orders.filter((o) => isActive(o.status));
+      case "delivered": return orders.filter((o) => o.status === "DELIVERED");
+      case "cancelled": return orders.filter((o) => o.status === "CANCELLED");
+      default: return orders;
+    }
+  }, [orders, filter]);
+
+  // Sort: active first, then by date desc
+  const sorted = useMemo(() => {
+    if (filter !== "all") return filtered;
+    return [...filtered].sort((a, b) => {
+      const aActive = isActive(a.status) ? 0 : 1;
+      const bActive = isActive(b.status) ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [filtered, filter]);
+
+  const counts = useMemo(() => ({
+    all: orders.length,
+    active: orders.filter((o) => isActive(o.status)).length,
+    delivered: orders.filter((o) => o.status === "DELIVERED").length,
+    cancelled: orders.filter((o) => o.status === "CANCELLED").length,
+  }), [orders]);
 
   if (authLoading || !isLoggedIn) {
     return (
@@ -121,7 +161,25 @@ export default function OrdersPage() {
         </div>
 
         <h1 className="text-xl font-extrabold text-slate-900 mb-1">Mis pedidos</h1>
-        <p className="text-xs text-slate-400 mb-5">Historial de tus reservas</p>
+        <p className="text-xs text-slate-400 mb-4">Historial de tus reservas</p>
+
+        {/* Filter tabs */}
+        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={"shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition " +
+                (filter === f.key
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-white border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-700"
+                )
+              }
+            >
+              {f.label} ({counts[f.key]})
+            </button>
+          ))}
+        </div>
 
         {loading && (
           <div className="space-y-3">
@@ -144,28 +202,35 @@ export default function OrdersPage() {
           <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">{error}</div>
         )}
 
-        {!loading && orders.length === 0 && !error && (
+        {!loading && sorted.length === 0 && !error && (
           <div className="rounded-2xl bg-white border border-slate-100 p-8 text-center">
             <div className="h-12 w-12 mx-auto rounded-full bg-slate-100 grid place-items-center">
               <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             </div>
-            <p className="mt-3 text-base font-extrabold text-slate-900">Sin pedidos aún</p>
-            <p className="mt-1 text-xs text-slate-400">Cuando reserves una oferta, aparecerá aquí.</p>
-            <Link href="/offers" className="mt-5 inline-flex rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition">
-              Explorar ofertas
-            </Link>
+            <p className="mt-3 text-base font-extrabold text-slate-900">
+              {filter === "all" ? "Sin pedidos aún" : `Sin pedidos ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()}`}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {filter === "all" ? "Cuando reserves una oferta, aparecerá aquí." : "No hay pedidos con este filtro."}
+            </p>
+            {filter === "all" && (
+              <Link href="/offers" className="mt-5 inline-flex rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition">
+                Explorar ofertas
+              </Link>
+            )}
           </div>
         )}
 
-        {!loading && orders.length > 0 && (
+        {!loading && sorted.length > 0 && (
           <div className="space-y-3">
-            {orders.map((order) => {
+            {sorted.map((order) => {
               const img = fixImg(order.menu?.imageUrl);
               const status = statusLabel(order.status);
+              const isCancelled = order.status === "CANCELLED";
               return (
-                <div key={order.id} className="rounded-2xl bg-white border border-slate-100 p-3.5 shadow-sm">
+                <div key={order.id} className={"rounded-2xl bg-white border border-slate-100 p-3.5 shadow-sm transition " + (isCancelled ? "opacity-50" : "")}>
                   <div className="flex gap-3">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                    <div className={"h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 " + (isCancelled ? "grayscale" : "")}>
                       {img ? (
                         <img src={img} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -194,7 +259,7 @@ export default function OrdersPage() {
                         <span className="rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-xs font-mono font-bold text-slate-600 tracking-wider">
                           {order.code}
                         </span>
-                        {(order.status === "PENDING" || order.status === "CONFIRMED") && (
+                        {isActive(order.status) && (
                           <img
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(order.code)}&margin=4`}
                             alt="QR"
