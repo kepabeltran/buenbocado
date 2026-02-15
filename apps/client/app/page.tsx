@@ -155,6 +155,41 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
 }
 
 
+
+/* ─── Contador animado ────────────────────────── */
+function AnimatedCounter({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
+  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setStarted(true); obs.disconnect(); } },
+      { threshold: 0.5 }
+    );
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!started) return;
+    let startTime: number;
+    let raf: number;
+    function step(ts: number) {
+      if (!startTime) startTime = ts;
+      const progress = Math.min((ts - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setCount(Math.round(eased * end));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [started, end, duration]);
+
+  return <span ref={ref}>{count}{suffix}</span>;
+}
+
 /* ─── Confeti con Canvas ─────────────────────── */
 function ConfettiCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -624,26 +659,51 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={200}>
             <div className="relative">
-              <div className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 p-8 md:p-10 text-white">
-                <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Ahorro medio por pedido</p>
-                <p className="mt-2 text-5xl font-extrabold">35%</p>
-                <p className="mt-1 text-emerald-200 text-sm">respecto al precio original del plato</p>
-                <div className="mt-8 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-white/10 p-4">
-                    <p className="text-xl font-extrabold">2 min</p>
-                    <p className="text-xs text-emerald-200 mt-0.5">tiempo medio de reserva</p>
+              <style>{`
+                @keyframes gradientShift {
+                  0% { background-position: 0% 50%; }
+                  25% { background-position: 100% 50%; }
+                  50% { background-position: 100% 0%; }
+                  75% { background-position: 0% 100%; }
+                  100% { background-position: 0% 50%; }
+                }
+                .animated-gradient {
+                  background: linear-gradient(-45deg, #059669, #10b981, #0d9488, #14b8a6, #047857, #34d399);
+                  background-size: 300% 300%;
+                  animation: gradientShift 8s ease infinite;
+                }
+                @keyframes floatBubble {
+                  0%, 100% { transform: translateY(0) scale(1); opacity: 0.08; }
+                  50% { transform: translateY(-20px) scale(1.1); opacity: 0.15; }
+                }
+              `}</style>
+              <div className="animated-gradient rounded-3xl p-8 md:p-10 text-white relative overflow-hidden">
+                {/* Floating decorative circles */}
+                <div className="absolute top-6 right-8 w-32 h-32 rounded-full bg-white/5" style={{ animation: "floatBubble 6s ease-in-out infinite" }} />
+                <div className="absolute bottom-10 left-6 w-20 h-20 rounded-full bg-white/5" style={{ animation: "floatBubble 8s ease-in-out 1s infinite" }} />
+                <div className="absolute top-1/2 right-1/3 w-14 h-14 rounded-full bg-white/5" style={{ animation: "floatBubble 7s ease-in-out 2s infinite" }} />
+
+                <div className="relative z-10">
+                  <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Ahorro medio por pedido</p>
+                  <p className="mt-2 text-5xl font-extrabold"><AnimatedCounter end={35} suffix="%" duration={1800} /></p>
+                  <p className="mt-1 text-white/70 text-sm">respecto al precio original del plato</p>
+                  <div className="mt-8 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/15 transition-colors duration-300">
+                      <p className="text-xl font-extrabold"><AnimatedCounter end={2} suffix=" min" duration={1200} /></p>
+                      <p className="text-xs text-white/60 mt-0.5">tiempo medio de reserva</p>
+                    </div>
+                    <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/15 transition-colors duration-300">
+                      <p className="text-lg font-extrabold leading-tight">Sin comisiones</p>
+                      <p className="text-xs text-white/60 mt-0.5">Lo que ves es lo que pagas</p>
+                    </div>
                   </div>
-                  <div className="rounded-xl bg-white/10 p-4">
-                    <p className="text-xl font-extrabold">0 €</p>
-                    <p className="text-xs text-emerald-200 mt-0.5">comisión al cliente</p>
-                  </div>
+                  {offers.length > 0 && (
+                    <div className="mt-6 rounded-xl bg-white/10 backdrop-blur-sm p-4 border border-white/10">
+                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-2">Última actividad</p>
+                      <RecentTicker offers={offers} />
+                    </div>
+                  )}
                 </div>
-                {offers.length > 0 && (
-                  <div className="mt-6 rounded-xl bg-white/10 p-4">
-                    <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-2">Última actividad</p>
-                    <RecentTicker offers={offers} />
-                  </div>
-                )}
               </div>
               <div className="absolute -bottom-3 -right-3 w-full h-full rounded-3xl bg-emerald-200/20 -z-10" />
             </div>
@@ -688,16 +748,65 @@ export default function LandingPage() {
       </section>
 
       {/* ─── CTA FINAL ────────────────────────────── */}
-      <section className="py-20 md:py-24 px-5">
+      <section className="py-20 md:py-28 px-5">
         <Reveal>
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 p-10 md:p-14 text-center text-white relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.08),transparent_50%)]" />
-              <div className="relative">
-                <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight">Tu próxima comida te espera</h2>
-                <p className="mt-3 text-emerald-100 text-sm md:text-base max-w-md mx-auto">Descubre las ofertas de los restaurantes cerca de ti.</p>
-                <div className="mt-7">
-                  <Link href="/offers" className="inline-flex rounded-full bg-white px-7 py-3.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-xl shadow-black/15 hover:-translate-y-0.5">Ver ofertas ahora</Link>
+            <div className="animated-gradient rounded-3xl p-10 md:p-16 text-center text-white relative overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-white/5" style={{ animation: "floatBubble 7s ease-in-out infinite" }} />
+                <div className="absolute -bottom-6 -right-6 w-52 h-52 rounded-full bg-white/5" style={{ animation: "floatBubble 9s ease-in-out 1.5s infinite" }} />
+                <div className="absolute top-1/3 right-10 w-16 h-16 rounded-full bg-white/5" style={{ animation: "floatBubble 5s ease-in-out 0.5s infinite" }} />
+                {/* Utensil decorations */}
+                <div className="absolute top-8 right-12 text-4xl opacity-10 select-none" style={{ animation: "floatBubble 8s ease-in-out 2s infinite" }}>🍽️</div>
+                <div className="absolute bottom-10 left-10 text-3xl opacity-10 select-none" style={{ animation: "floatBubble 6s ease-in-out 1s infinite" }}>🥘</div>
+                <div className="absolute top-1/2 left-1/4 text-2xl opacity-10 select-none" style={{ animation: "floatBubble 7s ease-in-out 3s infinite" }}>🔥</div>
+              </div>
+
+              <div className="relative z-10">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-4 py-1.5 mb-6">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-300 animate-pulse" />
+                  <span className="text-xs font-bold text-white/90">{offers.length > 0 ? `${offers.length} ofertas activas ahora` : "Ofertas en tiempo real"}</span>
+                </div>
+
+                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+                  Tu próxima comida<br />
+                  <span className="relative">
+                    te está esperando
+                    <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 8" preserveAspectRatio="none">
+                      <path d="M0 7 Q50 0 100 5 Q150 0 200 7" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                </h2>
+
+                <p className="mt-5 text-white/70 text-sm md:text-base max-w-lg mx-auto leading-relaxed">
+                  Platos de restaurante a precio reducido. Reserva en segundos, recoge con tu QR y disfruta.
+                </p>
+
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Link href="/offers" className="group inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-xl shadow-black/15 hover:-translate-y-0.5 hover:shadow-2xl">
+                    Explorar ofertas
+                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                  </Link>
+                  <a href="#como-funciona" className="inline-flex items-center gap-2 rounded-full border-2 border-white/30 px-7 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition">
+                    Cómo funciona
+                  </a>
+                </div>
+
+                {/* Trust badges */}
+                <div className="mt-10 flex items-center justify-center gap-6 text-white/50">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    Pago seguro
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Reserva en 2 min
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Sin comisiones
+                  </div>
                 </div>
               </div>
             </div>
