@@ -192,8 +192,8 @@ export default function OrdersPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">Pedidos</p>
-        <h1 className="text-3xl font-bold text-slate-900">Estados en tiempo real</h1>
-        <p className="text-sm text-zinc-500">
+        <h1 className="text-2xl font-extrabold text-slate-900">Estados en tiempo real</h1>
+        <p className="text-sm text-slate-400">
           Confirma la entrega introduciendo el código del cliente.
         </p>
       </header>
@@ -201,13 +201,13 @@ export default function OrdersPage() {
       <div className="flex flex-wrap gap-2">
         <Link
           href="/r/new"
-          className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
         >
           Crear oferta
         </Link>
         <Link
           href="/r"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           Panel
         </Link>
@@ -216,15 +216,15 @@ export default function OrdersPage() {
       {/* Stats row */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">En curso</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">En curso</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{inProgress.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Entregados</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Entregados</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{delivered.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Estado</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado</p>
           <p className="mt-1 text-base font-semibold text-slate-900">
             {loading ? "Cargando" : loadError ? "Error" : refreshing ? "Actualizando" : "Listo"}
           </p>
@@ -235,7 +235,7 @@ export default function OrdersPage() {
       <Card className="p-4">
         <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="text-xs font-semibold text-zinc-700">Código de recogida</label>
+            <label className="text-xs font-semibold text-slate-600">Código de recogida</label>
             <input
               ref={codeInputRef}
               value={code}
@@ -246,20 +246,20 @@ export default function OrdersPage() {
               autoComplete="one-time-code"
               enterKeyHint="done"
               placeholder="Ej. 054128"
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-lg font-semibold text-slate-900 outline-none focus:border-zinc-300"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-lg font-semibold text-slate-900 outline-none focus:border-emerald-400"
             />
           </div>
           <button
             type="submit"
             disabled={loading || normalizedCode.length === 0}
-            className="rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
+            className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-50"
           >
             Marcar entregado
           </button>
           <button
             type="button"
             onClick={() => loadOrders()}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
           >
             Refrescar
           </button>
@@ -307,13 +307,13 @@ export default function OrdersPage() {
       <section className="space-y-3">
         <div className="flex items-end justify-between">
           <h2 className="text-sm font-semibold text-slate-900">En curso</h2>
-          <p className="text-xs text-zinc-500">{inProgress.length} pedidos</p>
+          <p className="text-xs text-slate-400">{inProgress.length} pedidos</p>
         </div>
 
         {loading ? (
-          <Card className="p-4"><p className="text-sm text-zinc-500">Cargando…</p></Card>
+          <Card className="p-4"><p className="text-sm text-slate-400">Cargando…</p></Card>
         ) : inProgress.length === 0 ? (
-          <Card className="p-4"><p className="text-sm text-zinc-500">No hay pedidos en curso.</p></Card>
+          <Card className="p-4"><p className="text-sm text-slate-400">No hay pedidos en curso.</p></Card>
         ) : (
           <div className="grid gap-3">
             {inProgress.map((o) => (
@@ -321,15 +321,15 @@ export default function OrdersPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900 truncate">
                     {o.menu?.title ?? "Pedido"}{" "}
-                    <span className="text-xs font-normal text-zinc-500">({shortId(o.id)})</span>
+                    <span className="text-xs font-normal text-slate-400">({shortId(o.id)})</span>
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-slate-400">
                     {o.customerName} · {formatDateTime(o.createdAt)}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Código: <span className="font-semibold text-zinc-700">{o.code}</span>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Código: <span className="font-semibold text-slate-600">{o.code}</span>
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-slate-400">
                     Total: {formatMoney(o.totalCents, o.menu?.currency)} · Neto: {formatMoney(o.netToRestaurantCents, o.menu?.currency)}
                   </p>
                 </div>
@@ -347,7 +347,7 @@ export default function OrdersPage() {
           <button
             type="button"
             onClick={() => setShowDelivered((v) => !v)}
-            className="text-xs font-semibold text-zinc-900 hover:opacity-80"
+            className="text-xs font-semibold text-slate-900 hover:opacity-80"
           >
             {showDelivered ? "Ocultar" : "Ver (" + delivered.length + ")"}
           </button>
@@ -355,7 +355,7 @@ export default function OrdersPage() {
 
         {showDelivered && (
           delivered.length === 0 ? (
-            <Card className="p-4"><p className="text-sm text-zinc-500">No hay entregados.</p></Card>
+            <Card className="p-4"><p className="text-sm text-slate-400">No hay entregados.</p></Card>
           ) : (
             <div className="grid gap-3">
               {delivered.map((o) => (
@@ -363,12 +363,12 @@ export default function OrdersPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
                       {o.menu?.title ?? "Pedido"}{" "}
-                      <span className="text-xs font-normal text-zinc-500">({shortId(o.id)})</span>
+                      <span className="text-xs font-normal text-slate-400">({shortId(o.id)})</span>
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-slate-400">
                       {o.customerName} · {formatDateTime(o.createdAt)}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       Total: {formatMoney(o.totalCents, o.menu?.currency)} · Neto: {formatMoney(o.netToRestaurantCents, o.menu?.currency)}
                     </p>
                   </div>

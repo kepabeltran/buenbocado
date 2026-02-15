@@ -48,7 +48,7 @@ function formatDate(iso: string) {
 }
 
 function statusBadge(m: MenuDto) {
-  if (m.isExpired) return { label: "Expirada", color: "bg-zinc-100 text-zinc-500" };
+  if (m.isExpired) return { label: "Expirada", color: "bg-slate-100 text-slate-400" };
   if (m.quantity === 0) return { label: "Pausada", color: "bg-amber-50 text-amber-700 border-amber-200" };
   if (m.isActive) return { label: "Activa", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   return { label: "Programada", color: "bg-blue-50 text-blue-700 border-blue-200" };
@@ -152,8 +152,8 @@ export default function OffersPage() {
       className={
         "rounded-xl px-3 py-1.5 text-xs font-semibold transition " +
         (filter === f
-          ? "bg-zinc-900 text-white"
-          : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50")
+          ? "bg-emerald-600 text-white"
+          : "bg-white text-zinc-600 border border-slate-200 hover:bg-slate-50")
       }
     >
       {label}
@@ -166,19 +166,19 @@ export default function OffersPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">
           Ofertas
         </p>
-        <h1 className="text-3xl font-bold text-slate-900">Mis ofertas</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">Mis ofertas</h1>
       </header>
 
       <div className="flex flex-wrap gap-2">
         <Link
           href="/r/new"
-          className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
         >
           Crear oferta
         </Link>
         <Link
           href="/r"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
         >
           Panel
         </Link>
@@ -207,13 +207,13 @@ export default function OffersPage() {
       {/* List */}
       {loading ? (
         <Card className="p-4">
-          <p className="text-sm text-zinc-500">Cargando ofertas…</p>
+          <p className="text-sm text-slate-400">Cargando ofertas…</p>
         </Card>
       ) : error ? (
         <Card className="bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>
       ) : filtered.length === 0 ? (
         <Card className="p-4">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-slate-400">
             {menus.length === 0
               ? "Aún no has creado ofertas."
               : "No hay ofertas con este filtro."}
@@ -243,11 +243,11 @@ export default function OffersPage() {
                         {badge.label}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       {m.type === "TAKEAWAY" ? "Para llevar" : "En local"} ·{" "}
                       {formatMoney(m.priceCents, m.currency)} · Stock: {m.quantity}
                     </p>
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-slate-300">
                       {formatDate(m.availableFrom)} → {formatDate(m.availableTo)}
                     </p>
                   </div>
@@ -298,7 +298,7 @@ export default function OffersPage() {
                   <button
                     type="button"
                     onClick={() => doAction(m.id, "duplicate")}
-                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
                     Duplicar
                   </button>
