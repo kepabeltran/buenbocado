@@ -156,6 +156,137 @@ function OfferCarousel({ offers }: { offers: Offer[] }) {
 
 
 
+
+/* ─── Timeline 3 pasos animada ───────────────── */
+const STEPS_DATA = [
+  { step: "01", title: "Elige tu oferta", desc: "Explora los platos disponibles cerca de ti con descuentos exclusivos de última hora.",
+    icon: (active: boolean) => <svg className={"w-6 h-6 transition-colors duration-500 " + (active ? "text-emerald-600" : "text-slate-300")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> },
+  { step: "02", title: "Reserva al instante", desc: "Confirma en segundos. Recibirás un código QR y un código de recogida único.",
+    icon: (active: boolean) => <svg className={"w-6 h-6 transition-colors duration-500 " + (active ? "text-emerald-600" : "text-slate-300")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> },
+  { step: "03", title: "Recoge y disfruta", desc: "Ve al restaurante, muestra tu código y llévate tu comida. Sin esperas.",
+    icon: (active: boolean) => <svg className={"w-6 h-6 transition-colors duration-500 " + (active ? "text-emerald-600" : "text-slate-300")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> },
+];
+
+function StepsTimeline() {
+  const [activeStep, setActiveStep] = useState(-1);
+  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cycleRef = useRef(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { threshold: 0.3 }
+    );
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    function runCycle() {
+      setActiveStep(-1);
+      setProgress(0);
+
+      // Step 1 activates at 0s
+      const t1 = setTimeout(() => { setActiveStep(0); }, 300);
+      // Progress to step 2
+      const p1 = setTimeout(() => { setProgress(50); }, 800);
+      // Step 2 activates
+      const t2 = setTimeout(() => { setActiveStep(1); }, 1600);
+      // Progress to step 3
+      const p2 = setTimeout(() => { setProgress(100); }, 2100);
+      // Step 3 activates
+      const t3 = setTimeout(() => { setActiveStep(2); }, 2900);
+
+      return [t1, p1, t2, p2, t3];
+    }
+
+    let timers = runCycle();
+    const interval = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = runCycle();
+    }, 20000);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(interval);
+    };
+  }, [visible]);
+
+  return (
+    <div ref={containerRef} className="mt-16">
+      {/* Progress line - desktop */}
+      <div className="hidden md:block relative mb-12">
+        <div className="absolute top-5 left-[16.67%] right-[16.67%] h-0.5 bg-slate-100 rounded-full" />
+        <div
+          className="absolute top-5 left-[16.67%] h-0.5 bg-emerald-500 rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${progress * 0.667}%` }}
+        />
+        <div className="grid grid-cols-3">
+          {STEPS_DATA.map((s, i) => (
+            <div key={s.step} className="flex flex-col items-center">
+              <div className={
+                "h-10 w-10 rounded-full grid place-items-center font-extrabold text-sm border-2 transition-all duration-500 " +
+                (activeStep >= i
+                  ? "bg-emerald-600 border-emerald-600 text-white scale-110 shadow-lg shadow-emerald-600/30"
+                  : "bg-white border-slate-200 text-slate-300")
+              }>
+                {activeStep > i ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                ) : s.step}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {STEPS_DATA.map((item, i) => (
+          <div
+            key={item.step}
+            className={
+              "relative rounded-2xl border p-7 transition-all duration-700 " +
+              (activeStep >= i
+                ? "bg-white border-emerald-200 shadow-lg shadow-emerald-100/50 translate-y-0 opacity-100"
+                : "bg-[#fafdf7] border-slate-100 opacity-40 translate-y-3")
+            }
+          >
+            <span className={
+              "absolute top-5 right-6 text-5xl font-extrabold transition-colors duration-700 " +
+              (activeStep >= i ? "text-emerald-100" : "text-slate-100")
+            }>{item.step}</span>
+            <div className={
+              "h-11 w-11 rounded-xl grid place-items-center transition-colors duration-500 " +
+              (activeStep >= i ? "bg-emerald-50" : "bg-slate-50")
+            }>{item.icon(activeStep >= i)}</div>
+            <h3 className={
+              "mt-4 text-base font-extrabold transition-colors duration-500 " +
+              (activeStep >= i ? "text-slate-900" : "text-slate-300")
+            }>{item.title}</h3>
+            <p className={
+              "mt-2 text-sm leading-relaxed transition-colors duration-500 " +
+              (activeStep >= i ? "text-slate-500" : "text-slate-200")
+            }>{item.desc}</p>
+
+            {/* Mobile progress dot */}
+            <div className={
+              "md:hidden absolute -left-3 top-8 h-6 w-6 rounded-full border-2 grid place-items-center text-[10px] font-bold transition-all duration-500 " +
+              (activeStep >= i
+                ? "bg-emerald-600 border-emerald-600 text-white"
+                : "bg-white border-slate-200 text-slate-300")
+            }>{activeStep > i ? "✓" : i + 1}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Contador animado ────────────────────────── */
 function AnimatedCounter({ end, suffix = "", duration = 2000, repeatInterval = 20000 }: { end: number; suffix?: string; duration?: number; repeatInterval?: number }) {
   const [count, setCount] = useState(0);
@@ -619,25 +750,7 @@ export default function LandingPage() {
               <h2 className="mt-3 text-3xl md:text-4xl font-extrabold tracking-tight">En 3 pasos tienes tu comida</h2>
             </div>
           </Reveal>
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
-            {[
-              { step: "01", title: "Elige tu oferta", desc: "Explora los platos disponibles cerca de ti con descuentos exclusivos de última hora.",
-                icon: <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> },
-              { step: "02", title: "Reserva al instante", desc: "Confirma en segundos. Recibirás un código QR y un código de recogida único.",
-                icon: <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> },
-              { step: "03", title: "Recoge y disfruta", desc: "Ve al restaurante, muestra tu código y llévate tu comida. Sin esperas.",
-                icon: <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> },
-            ].map((item, i) => (
-              <Reveal key={item.step} delay={i * 150}>
-                <div className="relative rounded-2xl bg-[#fafdf7] border border-emerald-100/60 p-7 hover:shadow-lg hover:shadow-emerald-50 transition-all duration-300 hover:-translate-y-0.5">
-                  <span className="absolute top-5 right-6 text-5xl font-extrabold text-emerald-100">{item.step}</span>
-                  <div className="h-11 w-11 rounded-xl bg-emerald-50 grid place-items-center">{item.icon}</div>
-                  <h3 className="mt-4 text-base font-extrabold">{item.title}</h3>
-                  <p className="mt-2 text-sm text-slate-500 leading-relaxed">{item.desc}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <StepsTimeline />
         </div>
       </section>
 
