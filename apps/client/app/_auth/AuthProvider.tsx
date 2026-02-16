@@ -53,6 +53,16 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// Helper: only accept customer role
+function onlyCustomer(user: any): CustomerUser | null {
+  if (!user) return null;
+  if (user.role && user.role !== "customer") {
+    localStorage.removeItem("bb_access_token");
+    return null;
+  }
+  return user;
+}
+
 // ─── Provider ─────────────────────────────────────────────
 // NOTA: El cliente puede navegar ofertas sin estar logueado.
 // Solo se requiere login para reservar, ver pedidos, etc.
@@ -101,14 +111,14 @@ export function ClientAuthProvider({ children }: { children: ReactNode }) {
           });
           if (!retryRes.ok) return null;
           const retryJson = await retryRes.json();
-          return retryJson?.user ?? null;
+          return onlyCustomer(retryJson?.user);
         }
         return null;
       }
 
       if (!res.ok) return null;
       const json = await res.json();
-      return json?.user ?? null;
+      return onlyCustomer(json?.user);
     } catch {
       return null;
     }
