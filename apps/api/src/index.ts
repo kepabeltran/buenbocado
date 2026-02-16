@@ -10,6 +10,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import sharp from "sharp";
+import { hashPassword } from "./auth.js";
+import { notifyRestaurantWelcome } from "./notifications.js";
 
 function loadEnvIfMissing() {
   if (process.env.DATABASE_URL) return;
@@ -166,6 +168,14 @@ function menuToDto(menu: any, now: Date, userLat: number | null, userLng: number
   };
 }
 
+
+function generateTempPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let pw = "";
+  for (let i = 0; i < 10; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+  return pw;
+}
+
 app.get("/health", async () => ({ status: "ok" }));
 app.get("/api/health", async () => ({ status: "ok" }));
 
@@ -267,7 +277,7 @@ type CreateMenuBody = {
   imageUrl?: string;
 };
 
-async function createMenuHandler(body: CreateMenuBody, reply: any) {
+async function createMenuHandler(body: CreateMenuBody, reply: any, request?: any) {
   const now = new Date();
 
   if (!body?.type || !["TAKEAWAY", "DINEIN"].includes(body.type)) {
@@ -284,6 +294,9 @@ async function createMenuHandler(body: CreateMenuBody, reply: any) {
   }
 
   let restaurantId = body.restaurantId;
+  if (!restaurantId && request?.authUser?.restaurantId) {
+    restaurantId = request.authUser.restaurantId;
+  }
   if (!restaurantId) {
     const firstRestaurant = await prisma.restaurant.findFirst({ orderBy: { name: "asc" } });
     if (!firstRestaurant) {
@@ -324,8 +337,8 @@ async function createMenuHandler(body: CreateMenuBody, reply: any) {
   return reply.code(201).send({ ok: true, id: created.id });
 }
 
-app.post<{ Body: CreateMenuBody }>("/api/restaurant/menus", async (request, reply) => {
-  return createMenuHandler(request.body, reply);
+app.post<{ Body: CreateMenuBody }>("/api/restaurant/menus", { onRequest: [requireAuth("restaurant")] }, async (request, reply) => {
+  return createMenuHandler(request.body, reply, request);
 });
 
 app.addHook("onClose", async () => {
@@ -560,17 +573,56 @@ app.post("/api/admin/restaurants", async (req: any, reply: any) => {
     createdAt: true, updatedAt: true,
   };
 
+  // Email del propietario (opcional, si viene se crea usuario OWNER)
+  const ownerEmail = String(body.ownerEmail ?? "").trim().toLowerCase();
+
   try {
     const created = await prisma.restaurant.create({ data, select });
+
+    // Si se proporcionó email, crear usuario OWNER automáticamente
+    if (ownerEmail && ownerEmail.includes("@")) {
+      const existingUser = await prisma.restaurantUser.findUnique({ where: { email: ownerEmail } });
+      if (!existingUser) {
+        const tempPassword = generateTempPassword();
+        const pwHash = await hashPassword(tempPassword);
+        await prisma.restaurantUser.create({
+          data: {
+            email: ownerEmail,
+            passwordHash: pwHash,
+            restaurantId: created.id,
+            role: "OWNER",
+          },
+        });
+        console.log(`[ADMIN] Usuario OWNER creado: ${ownerEmail} para ${created.name}`);
+      }
+    }
+
     return reply.send({ ok: true, data: created });
   } catch (e: any) {
-    // Si el slug choca por unique, reintenta 1 vez con sufijo
     if (String(e?.code ?? "") === "P2002") {
       try {
         const created2 = await prisma.restaurant.create({
           data: { ...data, slug: `${slug}-${Math.random().toString(36).slice(2, 6)}` },
           select,
         });
+
+        if (ownerEmail && ownerEmail.includes("@")) {
+          const existingUser = await prisma.restaurantUser.findUnique({ where: { email: ownerEmail } });
+          if (!existingUser) {
+            const tempPassword = generateTempPassword();
+            const pwHash = await hashPassword(tempPassword);
+            await prisma.restaurantUser.create({
+              data: {
+                email: ownerEmail,
+                passwordHash: pwHash,
+                restaurantId: created2.id,
+                role: "OWNER",
+              },
+            });
+            console.log(`[ADMIN] Usuario OWNER creado: ${ownerEmail} para ${created2.name}`);
+          }
+        }
+
         return reply.send({ ok: true, data: created2 });
       } catch (e2: any) {
         return reply.code(500).send({ ok: false, error: "INTERNAL_ERROR", message: e2?.message ?? String(e2) });

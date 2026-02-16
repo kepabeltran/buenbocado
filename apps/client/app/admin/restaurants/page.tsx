@@ -230,6 +230,7 @@ export default function AdminRestaurantsPage() {
       settlementWeekday: Number(draft.settlementWeekday ?? 5),
       settlementTimezone: String(draft.settlementTimezone ?? "Europe/Madrid").trim(),
       contactPeople: String(draft.contactPeople ?? "").trim() || null,
+      ownerEmail: String((draft as any).ownerEmail ?? "").trim().toLowerCase() || undefined,
     };
 
     // si slug está vacío, que el API lo genere
@@ -382,6 +383,14 @@ export default function AdminRestaurantsPage() {
                   <input value={String(draft.phone ?? "")} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} style={inputStyle()} placeholder="+34 600 000 000" />
                   <span style={{ fontSize: 12, opacity: 0.7 }}>Se mostrará en la ficha del restaurante en la app.</span>
                 </label>
+
+                {isCreate && (
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, opacity: 0.75 }}>Email del propietario</span>
+                    <input value={String((draft as any).ownerEmail ?? "")} onChange={(e) => setDraft((d: any) => ({ ...d, ownerEmail: e.target.value }))} style={inputStyle()} placeholder="propietario@restaurante.com" />
+                    <span style={{ fontSize: 12, opacity: 0.7 }}>Se creará automáticamente un usuario OWNER con este email. Luego envía las credenciales desde Usuarios.</span>
+                  </label>
+                )}
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <label style={{ display: "grid", gap: 6 }}>

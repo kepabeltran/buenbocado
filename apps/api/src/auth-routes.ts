@@ -8,6 +8,11 @@
  * POST /api/auth/refresh             — Renovar access token
  * POST /api/auth/logout              — Cerrar sesión
  * GET  /api/auth/me                  — Info del usuario autenticado
+ * POST /api/admin/restaurant-users   — Crear usuario restaurante
+ * POST /api/admin/restaurant-users/:id/reset-password — Reset contraseña
+ * POST /api/admin/restaurant-users/:id/send-credentials — Generar contraseña temporal y enviar email
+ * POST /api/auth/restaurant/change-password — Cambiar contraseña (restaurante)
+ * POST /api/auth/customer/change-password   — Cambiar contraseña (cliente)
  */
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
@@ -24,10 +29,21 @@ import {
   type TokenPayload,
 } from "./auth.js";
 import { requireAuth } from "./auth-middleware.js";
+import { notifyRestaurantWelcome } from "./notifications.js";
+
+// Genera una contraseña temporal legible de 10 caracteres
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let pw = "";
+  for (let i = 0; i < 10; i++) {
+    pw += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pw;
+}
 
 export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
 
-  // ─── REGISTRO CLIENTE ─────────────────────────────────
+  // ——— REGISTRO CLIENTE ———————————————————————————————————————
   app.post("/api/auth/customer/register", async (req, reply) => {
     const body = (req.body ?? {}) as any;
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -45,7 +61,6 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "Nombre es obligatorio (mín. 2 caracteres)" });
     }
 
-    // Check duplicado
     const existing = await prisma.customer.findUnique({ where: { email } });
     if (existing) {
       return reply.code(409).send({ ok: false, error: "EMAIL_EXISTS", message: "Ya existe una cuenta con este email" });
@@ -70,7 +85,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     };
   });
 
-  // ─── LOGIN CLIENTE ────────────────────────────────────
+  // ——— LOGIN CLIENTE ——————————————————————————————————————————
   app.post("/api/auth/customer/login", async (req, reply) => {
     const body = (req.body ?? {}) as any;
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -104,7 +119,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     };
   });
 
-  // ─── LOGIN RESTAURANTE ────────────────────────────────
+  // ——— LOGIN RESTAURANTE ——————————————————————————————————————
   app.post("/api/auth/restaurant/login", async (req, reply) => {
     const body = (req.body ?? {}) as any;
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -158,7 +173,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     };
   });
 
-  // ─── LOGIN ADMIN ──────────────────────────────────────
+  // ——— LOGIN ADMIN ————————————————————————————————————————————
   app.post("/api/auth/admin/login", async (req, reply) => {
     const body = (req.body ?? {}) as any;
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -192,7 +207,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     };
   });
 
-  // ─── REFRESH TOKEN ────────────────────────────────────
+  // ——— REFRESH TOKEN ——————————————————————————————————————————
   app.post("/api/auth/refresh", async (req, reply) => {
     const cookies = parseCookies(req.headers?.cookie ?? "");
     const refreshToken = cookies.bb_refresh;
@@ -203,12 +218,10 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
 
     const payload = verifyJwt(refreshToken);
     if (!payload) {
-      // Limpiar cookies si el refresh token es inválido
       for (const c of clearAuthCookies()) reply.header("Set-Cookie", c);
       return reply.code(401).send({ ok: false, error: "INVALID_REFRESH", message: "Refresh token inválido o expirado" });
     }
 
-    // Verificar que el usuario sigue activo
     let isActive = false;
     if (payload.role === "customer") {
       const c = await prisma.customer.findUnique({ where: { id: payload.sub }, select: { isActive: true } });
@@ -239,13 +252,13 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     return { ok: true, accessToken: newAccessToken };
   });
 
-  // ─── LOGOUT ───────────────────────────────────────────
+  // ——— LOGOUT —————————————————————————————————————————————————
   app.post("/api/auth/logout", async (_req, reply) => {
     for (const c of clearAuthCookies()) reply.header("Set-Cookie", c);
     return { ok: true };
   });
 
-  // ─── ME (info usuario actual) ─────────────────────────
+  // ——— ME (info usuario actual) ———————————————————————————————
   app.get("/api/auth/me", {
     onRequest: [requireAuth("customer", "restaurant", "admin")],
   }, async (req) => {
@@ -289,7 +302,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     return { ok: false, error: "UNKNOWN_ROLE" };
   });
 
-  // ─── ADMIN: Crear usuario restaurante (al dar de alta restaurante) ──
+  // ——— ADMIN: Crear usuario restaurante ———————————————————————
   app.post("/api/admin/restaurant-users", {
     onRequest: [requireAuth("admin")],
   }, async (req, reply) => {
@@ -310,13 +323,11 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
       return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "restaurantId es obligatorio" });
     }
 
-    // Verificar que el restaurante existe
     const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
     if (!restaurant) {
       return reply.code(404).send({ ok: false, error: "NOT_FOUND", message: "Restaurante no encontrado" });
     }
 
-    // Check duplicado
     const existing = await prisma.restaurantUser.findUnique({ where: { email } });
     if (existing) {
       return reply.code(409).send({ ok: false, error: "EMAIL_EXISTS", message: "Ya existe un usuario con este email" });
@@ -339,7 +350,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     return { ok: true, data: user };
   });
 
-  // ─── ADMIN: Cambiar contraseña de usuario restaurante ──
+  // ——— ADMIN: Cambiar contraseña de usuario restaurante ———————
   app.post("/api/admin/restaurant-users/:id/reset-password", {
     onRequest: [requireAuth("admin")],
   }, async (req: any, reply) => {
@@ -361,7 +372,45 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     return { ok: true, message: "Contraseña actualizada" };
   });
 
-  // ─── RESTAURANTE: Cambiar mi propia contraseña ────────
+  // ——— ADMIN: Enviar credenciales al usuario restaurante ——————
+  app.post("/api/admin/restaurant-users/:id/send-credentials", {
+    onRequest: [requireAuth("admin")],
+  }, async (req: any, reply) => {
+    const id = String(req.params?.id ?? "").trim();
+
+    const user = await prisma.restaurantUser.findUnique({
+      where: { id },
+      include: { restaurant: { select: { name: true } } },
+    });
+    if (!user) {
+      return reply.code(404).send({ ok: false, error: "NOT_FOUND", message: "Usuario no encontrado" });
+    }
+
+    // Generar contraseña temporal y actualizar en BD
+    const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
+    await prisma.restaurantUser.update({ where: { id }, data: { passwordHash } });
+
+    // Enviar notificación (console.log en dev, email en prod)
+    const sent = await notifyRestaurantWelcome({
+      email: user.email,
+      password: tempPassword,
+      restaurantName: user.restaurant?.name ?? "Tu restaurante",
+      role: user.role,
+    });
+
+    console.log(`[ADMIN] Credenciales enviadas a ${user.email} para ${user.restaurant?.name} | by=${(req as any).authUser?.email}`);
+
+    return {
+      ok: true,
+      message: sent
+        ? "Credenciales enviadas correctamente"
+        : "Contraseña actualizada (el email se enviará cuando se configure el servicio de correo)",
+      tempPassword,
+    };
+  });
+
+  // ——— RESTAURANTE: Cambiar mi propia contraseña ——————————————
   app.post("/api/auth/restaurant/change-password", {
     onRequest: [requireAuth("restaurant")],
   }, async (req, reply) => {
@@ -393,7 +442,7 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     return { ok: true, message: "Contraseña actualizada correctamente" };
   });
 
-  // ─── CLIENTE: Cambiar mi propia contraseña ────────────
+  // ——— CLIENTE: Cambiar mi propia contraseña ——————————————————
   app.post("/api/auth/customer/change-password", {
     onRequest: [requireAuth("customer")],
   }, async (req, reply) => {

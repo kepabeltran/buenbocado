@@ -49,6 +49,12 @@ export default function AdminUsersPage() {
   const [formRestaurantId, setFormRestaurantId] = useState("");
   const [formBusy, setFormBusy] = useState(false);
 
+  // Modal credenciales enviadas
+  const [credModal, setCredModal] = useState<{ email: string; password: string; restaurant: string } | null>(null);
+
+  // Sending credentials loading state
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -138,6 +144,41 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function sendCredentials(userId: string) {
+    const token = getToken();
+    if (!token) return;
+
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    if (!confirm(`Se generará una nueva contraseña temporal y se enviarán las credenciales a ${user.email}. ¿Continuar?`)) return;
+
+    setSendingId(userId);
+    setMsg(null);
+
+    try {
+      const res = await fetch(API_BASE + "/api/admin/restaurant-users/" + userId + "/send-credentials", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || "Error enviando credenciales");
+
+      setCredModal({
+        email: user.email,
+        password: json.tempPassword || "(ver terminal API)",
+        restaurant: user.restaurant?.name || "—",
+      });
+
+      setMsg({ type: "ok", text: "Credenciales enviadas a " + user.email });
+    } catch (e: any) {
+      setMsg({ type: "error", text: String(e?.message || e) });
+    } finally {
+      setSendingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -156,6 +197,58 @@ export default function AdminUsersPage() {
       {msg && (
         <div className={"rounded-xl px-3 py-2 text-sm font-medium " + (msg.type === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>
           {msg.text}
+        </div>
+      )}
+
+      {/* Modal credenciales generadas */}
+      {credModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCredModal(null)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-zinc-900">Credenciales generadas</h2>
+            <p className="mt-1 text-sm text-zinc-500">Comparte estos datos con el restaurante</p>
+
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+              <div className="text-sm">
+                <span className="text-zinc-500">Restaurante: </span>
+                <span className="font-semibold text-zinc-900">{credModal.restaurant}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-zinc-500">Email: </span>
+                <span className="font-semibold text-zinc-900">{credModal.email}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-zinc-500">Contraseña: </span>
+                <span className="font-mono font-bold text-emerald-700">{credModal.password}</span>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-zinc-400">
+              En producción este email se enviará automáticamente. Por ahora puedes copiar los datos y enviarlos manualmente.
+            </p>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  const text = `BuenBocado — Credenciales de acceso\n\nRestaurante: ${credModal.restaurant}\nEmail: ${credModal.email}\nContraseña: ${credModal.password}\nPortal: http://localhost:3001`;
+                  try {
+                    navigator.clipboard.writeText(text);
+                    setMsg({ type: "ok", text: "Credenciales copiadas al portapapeles" });
+                  } catch {
+                    window.prompt("Copia las credenciales:", text);
+                  }
+                }}
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+              >
+                Copiar
+              </button>
+              <button
+                onClick={() => setCredModal(null)}
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -241,7 +334,7 @@ export default function AdminUsersPage() {
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-500">Restaurante</th>
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-500">Estado</th>
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-500">Creado</th>
-                <th className="px-3 py-2 text-xs font-semibold text-zinc-500">Acción</th>
+                <th className="px-3 py-2 text-xs font-semibold text-zinc-500">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -257,12 +350,21 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-500">{formatDate(u.createdAt)}</td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() => resetPassword(u.id)}
-                      className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
-                    >
-                      Reset pwd
-                    </button>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => sendCredentials(u.id)}
+                        disabled={sendingId === u.id}
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        {sendingId === u.id ? "Enviando…" : "Enviar credenciales"}
+                      </button>
+                      <button
+                        onClick={() => resetPassword(u.id)}
+                        className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Reset pwd
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
