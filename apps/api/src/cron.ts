@@ -1,7 +1,7 @@
 /**
  * cron.ts — Tareas automáticas periódicas
  *
- * - Cancelar pedidos CREATED o CONFIRMED con más de 2 horas (no-show)
+ * - Marcar como NOSHOW pedidos CREATED o PREPARING con más de 2 horas
  * - Se ejecuta cada 10 minutos
  */
 import type { PrismaClient } from "@prisma/client";
@@ -18,19 +18,19 @@ export function startCronJobs(prisma: PrismaClient) {
 
       const result = await prisma.order.updateMany({
         where: {
-          status: { in: ["CREATED", "CONFIRMED"] },
+          status: { in: ["CREATED", "PREPARING"] },
           createdAt: { lt: cutoff },
         },
         data: {
-          status: "CANCELLED",
+          status: "NOSHOW",
         },
       });
 
       if (result.count > 0) {
-        console.log(`[CRON] ${result.count} pedido(s) cancelado(s) por no-show (>2h sin recoger)`);
+        console.log(`[CRON] ${result.count} pedido(s) marcado(s) como no-show (>2h sin recoger)`);
       }
     } catch (err) {
-      console.error("[CRON] Error cancelando no-shows:", err);
+      console.error("[CRON] Error procesando no-shows:", err);
     }
   }
 
