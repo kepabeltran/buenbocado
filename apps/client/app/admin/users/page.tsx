@@ -25,7 +25,7 @@ type RestaurantDto = {
 
 function getToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("bb_access_token");
+  return localStorage.getItem("bb_admin_token");
 }
 
 function formatDate(iso: string) {

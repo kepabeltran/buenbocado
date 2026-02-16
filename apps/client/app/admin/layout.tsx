@@ -29,7 +29,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const getToken = useCallback(() => {
     if (typeof window === "undefined") return null;
-    return localStorage.getItem("bb_access_token");
+    return localStorage.getItem("bb_admin_token");
   }, []);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [getToken, router, isLoginPage]);
 
   function logout() {
-    localStorage.removeItem("bb_access_token");
+    localStorage.removeItem("bb_admin_token");
     localStorage.removeItem("bb_admin_user");
     fetch(API_BASE + "/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     router.push("/admin/login");

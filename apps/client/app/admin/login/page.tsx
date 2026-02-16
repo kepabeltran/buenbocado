@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
       }
 
       if (json.accessToken) {
-        localStorage.setItem("bb_access_token", json.accessToken);
+        localStorage.setItem("bb_admin_token", json.accessToken);
       }
       if (json.user) {
         localStorage.setItem("bb_admin_user", JSON.stringify(json.user));

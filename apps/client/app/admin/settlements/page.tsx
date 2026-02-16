@@ -41,7 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function getToken() {
-  return typeof window !== "undefined" ? localStorage.getItem("bb_access_token") : null;
+  return typeof window !== "undefined" ? localStorage.getItem("bb_admin_token") : null;
 }
 
 function formatMoney(cents: number) {
