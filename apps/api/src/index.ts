@@ -810,6 +810,26 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
   const restaurantId = String((req.params as any)?.restaurantId ?? "").trim();
   const body = (req.body ?? {}) as any;
   const code = String(body.code ?? "").trim();
+  const internalKey = String(process.env.X_INTERNAL_KEY ?? "").trim();
+  const requestInternalKey = String((req.headers as any)?.["x-internal-key"] ?? "").trim();
+
+  if (internalKey) {
+    if (!requestInternalKey) {
+      return reply.code(401).send({
+        ok: false,
+        error: "UNAUTHORIZED",
+        message: "Falta X-Internal-Key",
+      });
+    }
+
+    if (requestInternalKey !== internalKey) {
+      return reply.code(403).send({
+        ok: false,
+        error: "FORBIDDEN",
+        message: "X-Internal-Key inválida",
+      });
+    }
+  }
 
   if (!restaurantId) {
     return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "restaurantId es obligatorio" });
@@ -856,57 +876,13 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
     restaurant: order.menu?.restaurant ? { id: order.menu.restaurant.id, name: order.menu.restaurant.name } : null,
   };
 });
-app.post("/api/restaurant/orders/mark-delivered", async (req: any, reply: any) => {
-  const body = (req.body ?? {}) as any;
-  const code = String(body.code ?? "").trim();
-
-  if (!code) {
-    return reply.code(400).send({
-      ok: false,
-      error: "BAD_REQUEST",
-      message: "code es obligatorio",
-    });
-  }
-
-  const order = await prisma.order.findFirst({
-    where: { code },
-    include: { menu: { include: { restaurant: true } } },
+app.post("/api/restaurant/orders/mark-delivered", async (_req: any, reply: any) => {
+  return reply.code(410).send({
+    ok: false,
+    error: "GONE",
+    message:
+      "Endpoint deshabilitado por seguridad. Usa /api/restaurants/:restaurantId/orders/mark-delivered",
   });
-
-  if (!order) {
-    return reply.code(404).send({
-      ok: false,
-      error: "NOT_FOUND",
-      message: "Pedido no encontrado",
-    });
-  }
-
-  if (order.status === "DELIVERED") {
-    return {
-      ok: true,
-      alreadyDelivered: true,
-      order: { id: order.id, status: order.status, code: order.code },
-    };
-  }
-
-  // Modo estricto (solo desde READY) -> si lo quieres, descomenta:
-  // if (order.status !== OrderStatus.READY) {
-  //   return reply.code(409).send({
-  //     ok: false,
-  //     error: "NOT_READY",
-  //     message: "El pedido a?n no est? LISTO",
-  //   });
-  // }
-
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: { status: "DELIVERED" },
-  });
-
-  return {
-    ok: true,
-    order: { id: updated.id, status: updated.status, code: updated.code },
-  };
 });
 
 await app.listen({ port, host: "0.0.0.0" });
