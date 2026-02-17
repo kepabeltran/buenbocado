@@ -88,6 +88,7 @@ export default function OrdersPage() {
   
 
   const RESTAURANT_ID_ENV = (process.env.NEXT_PUBLIC_RESTAURANT_ID || "").trim();
+  const INTERNAL_KEY = (process.env.NEXT_PUBLIC_X_INTERNAL_KEY || "").trim();
 
 const inProgress = useMemo(() => {
     const list = orders.filter((o) => o.status !== "DELIVERED");
@@ -205,13 +206,17 @@ const inProgress = useMemo(() => {
     }
 
     try {
-            const endpoint = RESTAURANT_ID_ENV
-        ? `${API_BASE}/api/restaurants/${encodeURIComponent(RESTAURANT_ID_ENV)}/orders/mark-delivered`
-        : `${API_BASE}/api/restaurant/orders/mark-delivered`;
+      if (!RESTAURANT_ID_ENV) {
+        throw new Error("Configuración inválida: falta RESTAURANT_ID para marcar entregados.");
+      }
+
+      const endpoint = `${API_BASE}/api/restaurants/${encodeURIComponent(RESTAURANT_ID_ENV)}/orders/mark-delivered`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (INTERNAL_KEY) headers["X-Internal-Key"] = INTERNAL_KEY;
 
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ code: normalizedCode }),
       });
 
