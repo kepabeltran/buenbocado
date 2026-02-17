@@ -84,12 +84,13 @@ model RestaurantUser {
 }
 
 model Menu {
-  id                  String   @id @default(cuid())
-  restaurantId        String
-  type                MenuType
-  title               String
-  description         String
-  priceCents          Int
+model Order {
+  @@index([status])
+  @@index([code])
+  @@unique([menuId, code])
+  @@index([createdAt])
+  @@index([deliveredAt])
+}
   currency            String
   quantity            Int
   availableFrom       DateTime
