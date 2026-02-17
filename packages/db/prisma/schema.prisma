@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -144,6 +144,7 @@ model Order {
   @@index([menuId])
   @@index([status])
   @@index([code])
+  @@unique([menuId, code])
   @@index([createdAt])
   @@index([deliveredAt])
   @@index([settlementId])
@@ -206,3 +207,4 @@ model Settlement {
   @@index([status])
   @@index([periodStart])
 }
+

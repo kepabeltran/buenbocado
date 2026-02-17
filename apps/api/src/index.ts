@@ -426,8 +426,8 @@ app.post("/api/orders", { onRequest: [requireAuth("customer")] }, async (req: an
     });
   }
 
-  // Codigo simple (6 digitos)
-  const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
+  const isDev = process.env.NODE_ENV !== "production";
+  const maxCodeAttempts = 5;
 
   try {
     const order = await prisma.$transaction(async (tx: any) => {
@@ -441,18 +441,36 @@ app.post("/api/orders", { onRequest: [requireAuth("customer")] }, async (req: an
         throw new Error("OUT_OF_STOCK");
       }
 
-            return tx.order.create({
-        data: {
-          menuId,
-          customerName,
-          customerEmail,
-          code,
-          totalCents: menu.priceCents,
-          commissionBpsAtPurchase: menu.restaurant?.commissionBps ?? 0,
-          platformFeeCents: Math.round(menu.priceCents * ((menu.restaurant?.commissionBps ?? 0) / 10000)),
-          // status: CREATED por defecto
-        },
-      });
+      for (let attempt = 1; attempt <= maxCodeAttempts; attempt++) {
+        const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
+
+        try {
+          return await tx.order.create({
+            data: {
+              menuId,
+              customerName,
+              customerEmail,
+              code,
+              totalCents: menu.priceCents,
+              commissionBpsAtPurchase: menu.restaurant?.commissionBps ?? 0,
+              platformFeeCents: Math.round(menu.priceCents * ((menu.restaurant?.commissionBps ?? 0) / 10000)),
+              // status: CREATED por defecto
+            },
+          });
+        } catch (e: any) {
+          if (e?.code === "P2002" && attempt < maxCodeAttempts) {
+            continue;
+          }
+
+          if (e?.code === "P2002") {
+            throw new Error("ORDER_CODE_COLLISION_MAX_RETRIES");
+          }
+
+          throw e;
+        }
+      }
+
+      throw new Error("ORDER_CODE_COLLISION_MAX_RETRIES");
     });
     onOrderCreated(prisma, order.id);
 
@@ -479,6 +497,16 @@ app.post("/api/orders", { onRequest: [requireAuth("customer")] }, async (req: an
       return reply.code(409).send({
         error: "OUT_OF_STOCK",
         message: "Sin stock (alguien reserv? justo antes)",
+      });
+    }
+
+    if (String(e?.message ?? "").includes("ORDER_CODE_COLLISION_MAX_RETRIES")) {
+      req.log?.error?.(e);
+      return reply.code(500).send({
+        error: "INTERNAL",
+        message: isDev
+          ? "No se pudo generar un código único para el pedido tras 5 intentos"
+          : "No se pudo crear la reserva",
       });
     }
 
