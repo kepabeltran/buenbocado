@@ -9,6 +9,8 @@ type ApiMenu = {
   id: string;
   restaurant: string;
   restaurantAddress?: string | null;
+  restaurantLat?: number | null;
+  restaurantLng?: number | null;
   type: "TAKEAWAY" | "DINEIN" | "DINE_IN";
   title: string;
   description?: string | null;
@@ -147,6 +149,9 @@ export default function OffersPage() {
   const [sort, setSort] = useState<"near" | "soon">("near");
   const [typeFilter, setTypeFilter] = useState<"TAKEAWAY" | "DINEIN" | null>(null);
   const [under10, setUnder10] = useState(false);
+  const [showMap, setShowMap] = useState(true);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const leafletMapRef = React.useRef<any>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -191,6 +196,122 @@ export default function OffersPage() {
     return result;
   }, [items, sort, typeFilter, under10]);
 
+
+  // Leaflet map
+  useEffect(() => {
+    if (!showMap || !mapRef.current || filtered.length === 0) return;
+    if (typeof window === "undefined") return;
+
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+
+    const initMap = () => {
+      const L = (window as any).L;
+      if (!L || !mapRef.current) return;
+
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
+
+      const map = L.map(mapRef.current).setView([36.7213, -4.4214], 14);
+      leafletMapRef.current = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "",
+        maxZoom: 19,
+      }).addTo(map);
+
+      type RestaurantOffer = { title: string; price: string };
+      type RestaurantGroup = { name: string; lat: number; lng: number; offers: RestaurantOffer[] };
+
+      const byRestaurant = new Map<string, RestaurantGroup>();
+      for (const m of filtered) {
+        const lat = m.restaurantLat;
+        const lng = m.restaurantLng;
+        if (lat == null || lng == null) continue;
+
+        const key = m.restaurant;
+        let group = byRestaurant.get(key);
+        if (!group) {
+          group = { name: m.restaurant, lat, lng, offers: [] };
+          byRestaurant.set(key, group);
+        }
+        group.offers.push({ title: m.title, price: (m.priceCents / 100).toFixed(2) + " \u20ac" });
+      }
+
+      const greenIcon = L.divIcon({
+        className: "",
+        html: '<div style="width:32px;height:32px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:grid;place-items:center"><span style="color:#fff;font-weight:900;font-size:14px">BB</span></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -20],
+      });
+
+      const bounds: [number, number][] = [];
+
+      byRestaurant.forEach((r) => {
+        const offersHtml = r.offers
+          .map(
+            (o) =>
+              '<div style="font-size:12px;margin-top:4px"><strong>' +
+              o.title +
+              "</strong> — " +
+              o.price +
+              "</div>"
+          )
+          .join("");
+        const popup =
+          '<div style="font-family:DM Sans,system-ui,sans-serif;min-width:160px"><div style="font-size:14px;font-weight:800;color:#10b981">' +
+          r.name +
+          "</div>" +
+          offersHtml +
+          "</div>";
+
+        L.marker([r.lat, r.lng], { icon: greenIcon }).addTo(map).bindPopup(popup);
+        bounds.push([r.lat, r.lng]);
+      });
+
+
+      if (coords) {
+        const userIcon = L.divIcon({
+          className: "",
+          html: '<div style="width:14px;height:14px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        });
+        L.marker([coords.lat, coords.lng], { icon: userIcon }).addTo(map).bindPopup('<div style="font-size:12px;font-weight:700">T\u00fa</div>');
+      }
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
+
+      setTimeout(() => map.invalidateSize(), 100);
+    };
+
+    if ((window as any).L) {
+      initMap();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      script.onload = initMap;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
+    };
+  }, [showMap, filtered, coords]);
+
   return (
     <div className="min-h-[100svh] bg-[#fafdf7]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
@@ -222,6 +343,7 @@ export default function OffersPage() {
           )}
 
           <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <Chip active={showMap} onClick={() => setShowMap(!showMap)}>{showMap ? "Lista" : "Mapa"}</Chip>
             <Chip active={sort === "near"} onClick={() => setSort("near")}>Cerca</Chip>
             <Chip active={sort === "soon"} onClick={() => setSort("soon")}>Caduca pronto</Chip>
             <Chip active={under10} onClick={() => setUnder10(!under10)}>&lt; 10 €</Chip>

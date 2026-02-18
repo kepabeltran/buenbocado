@@ -405,6 +405,7 @@ function ConfettiCanvas() {
     }
 
     function animate() {
+      if (!canvas || !ctx) return;
       frame++;
       if (frame > maxFrames) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
