@@ -770,74 +770,17 @@ app.patch("/api/admin/restaurants/:id", async (req: any, reply: any) => {
       .send({ ok: false, error: "SERVER_ERROR", message: String(e?.message ?? e) });
   }
 });
-app.get("/api/restaurant/orders", async (req: any) => {
-  const q = (req.query ?? {}) as any;
-  const restaurantId = String(q.restaurantId ?? "").trim() || null;
-
-  const takeRaw = Number(q.take ?? 50);
-  const take = Number.isFinite(takeRaw) ? Math.max(1, Math.min(100, Math.floor(takeRaw))) : 50;
-
-  const where: any = {};
-  if (restaurantId) {
-    // filtra por restaurante via relaci?f?'?,?n menu -> restaurantId
-    where.menu = { restaurantId };
-  }
-
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take,
-    include: {
-      menu: { include: { restaurant: true } },
-    },
+// --- Restaurant Orders (MVP) ---
+// ⚠️ Seguridad: este endpoint estuvo abierto sin auth en versiones antiguas.
+// Lo dejamos en 410 para evitar fuga de pedidos.
+// Usa /api/restaurant/me/orders (requiere Bearer token de restaurante).
+app.get("/api/restaurant/orders", async (_req: any, reply: any) => {
+  return reply.code(410).send({
+    ok: false,
+    error: "GONE",
+    message: "Endpoint deshabilitado por seguridad. Usa /api/restaurant/me/orders (Bearer token)",
   });
-
-const data = orders.map((o: any) => {
-  const totalCents = o.totalCents ?? o.menu?.priceCents ?? null;
-  const commissionBpsAtPurchase =
-    o.commissionBpsAtPurchase ?? o.menu?.restaurant?.commissionBps ?? null;
-  const platformFeeCents =
-    o.platformFeeCents ??
-    (totalCents != null && commissionBpsAtPurchase != null
-      ? Math.round(totalCents * (commissionBpsAtPurchase / 10000))
-      : null);
-  const netToRestaurantCents =
-    totalCents != null && platformFeeCents != null ? totalCents - platformFeeCents : null;
-
-  return {
-    id: o.id,
-    status: o.status,
-    code: o.code,
-    createdAt: o.createdAt,
-    customerName: o.customerName,
-    customerEmail: o.customerEmail,
-
-    totalCents,
-    commissionBpsAtPurchase,
-    platformFeeCents,
-    netToRestaurantCents,
-
-    menu: o.menu
-      ? {
-          id: o.menu.id,
-          title: o.menu.title,
-          type: o.menu.type,
-          priceCents: o.menu.priceCents,
-          currency: o.menu.currency ?? "EUR",
-        }
-      : null,
-    restaurant: o.menu?.restaurant
-      ? {
-          id: o.menu.restaurant.id,
-          name: o.menu.restaurant.name,
-        }
-      : null,
-  };
 });
-
-  return { ok: true, data };
-});
-
 
 app.get("/api/orders/:id", async (req: any, reply: any) => {
   const id = String((req.params as any)?.id ?? "").trim();
