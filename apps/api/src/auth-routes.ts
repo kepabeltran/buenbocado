@@ -31,6 +31,23 @@ import {
 import { requireAuth } from "./auth-middleware.js";
 import { notifyRestaurantWelcome } from "./notifications.js";
 
+
+// Política de contraseña (alineada con UI cliente/restaurante)
+function checkPasswordPolicy(pw: string): { ok: boolean; message?: string } {
+  const missing: string[] = [];
+  if (pw.length < 8) missing.push("mínimo 8 caracteres");
+  if (!/[A-Z]/.test(pw)) missing.push("una mayúscula");
+  if (!/[a-z]/.test(pw)) missing.push("una minúscula");
+  if (!/[0-9]/.test(pw)) missing.push("un número");
+  if (!/[^A-Za-z0-9]/.test(pw)) missing.push("un símbolo");
+
+  if (missing.length === 0) return { ok: true };
+  return {
+    ok: false,
+    message: "La contraseña debe incluir " + missing.join(", ") + ".",
+  };
+}
+
 // Genera una contraseña temporal legible de 10 caracteres
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -422,8 +439,12 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     if (!currentPassword || !newPassword) {
       return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "Contraseña actual y nueva son obligatorias" });
     }
-    if (newPassword.length < 6) {
-      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "La nueva contraseña debe tener al menos 6 caracteres" });
+    if (currentPassword === newPassword) {
+      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "La nueva contraseña debe ser distinta a la actual" });
+    }
+    const policy = checkPasswordPolicy(newPassword);
+    if (!policy.ok) {
+      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: policy.message || "Contraseña no válida" });
     }
 
     const dbUser = await prisma.restaurantUser.findUnique({ where: { id: user.sub } });
@@ -454,8 +475,12 @@ export function registerAuthRoutes(app: FastifyInstance, prisma: PrismaClient) {
     if (!currentPassword || !newPassword) {
       return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "Contraseña actual y nueva son obligatorias" });
     }
-    if (newPassword.length < 6) {
-      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "La nueva contraseña debe tener al menos 6 caracteres" });
+    if (currentPassword === newPassword) {
+      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: "La nueva contraseña debe ser distinta a la actual" });
+    }
+    const policy = checkPasswordPolicy(newPassword);
+    if (!policy.ok) {
+      return reply.code(400).send({ ok: false, error: "BAD_REQUEST", message: policy.message || "Contraseña no válida" });
     }
 
     const dbUser = await prisma.customer.findUnique({ where: { id: user.sub } });
