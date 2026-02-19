@@ -26,7 +26,16 @@ type AdminRestaurant = {
   updatedAt: string;
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:4000").trim();
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://127.0.0.1:4000"
+).replace(/\/$/, "");
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("bb_admin_token");
+}
 
 function pctFromBps(bps: number) {
   return ((bps ?? 0) / 100).toFixed(2);
@@ -87,12 +96,22 @@ export default function AdminRestaurantsPage() {
 
   const [draft, setDraft] = useState<Partial<AdminRestaurant>>({});
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   async function load() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/restaurants`, { cache: "no-store" });
+      const token = getToken();
+      if (!token) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/admin/restaurants`, {
+        cache: "no-store",
+        headers: { Authorization: "Bearer " + token },
+      });
       const j = await res.json();
       if (!j?.ok) throw new Error(j?.message || "Error cargando restaurantes");
       setItems(j.data || []);
@@ -165,8 +184,53 @@ export default function AdminRestaurantsPage() {
     }
   }
 
+  async function setRestaurantActive(nextActive: boolean) {
+    if (!editingId) return;
+    const token = getToken();
+    if (!token) {
+      window.location.href = "/admin/login";
+      return;
+    }
+
+    const label = nextActive ? "reactivar" : "suspender";
+    const ok = window.confirm(
+      nextActive
+        ? "¿Reactivar este restaurante? Volverá a aparecer en la app y podrá iniciar sesión."
+        : "¿Suspender este restaurante? Desaparecerá de las ofertas y no podrá iniciar sesión."
+    );
+    if (!ok) return;
+
+    setActionLoading(true);
+    setSavedMsg(null);
+    setErr(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/restaurants/${editingId}`, {
+        method: "PATCH",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      const j = await res.json();
+      if (!j?.ok) throw new Error(j?.message || `No se pudo ${label}`);
+
+      const updated = j.data as AdminRestaurant;
+      setItems((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setDraft((d) => ({ ...d, isActive: updated.isActive }));
+      setSavedMsg(updated.isActive ? "Restaurante reactivado " : "Restaurante suspendido ");
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function save() {
     if (!editingId) return;
+    const token = getToken();
+    if (!token) {
+      window.location.href = "/admin/login";
+      return;
+    }
     setSavedMsg(null);
     setErr(null);
 
@@ -188,7 +252,7 @@ export default function AdminRestaurantsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/restaurants/${editingId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const j = await res.json();
@@ -204,6 +268,12 @@ export default function AdminRestaurantsPage() {
   async function createFromDraft() {
     setSavedMsg(null);
     setErr(null);
+
+    const token = getToken();
+    if (!token) {
+      window.location.href = "/admin/login";
+      return;
+    }
 
     const name = String(draft.name ?? "").trim();
     const address = String(draft.address ?? "").trim();
@@ -239,7 +309,7 @@ export default function AdminRestaurantsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/restaurants`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const j = await res.json();
@@ -347,6 +417,54 @@ export default function AdminRestaurantsPage() {
                   style={{ ...btnStyle, padding: "6px 10px", fontSize: 12 }}
                 >
                   Copiar
+                </button>
+              </div>
+            ) : null}
+
+            {!isCreate && editing ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  background: "rgba(255,255,255,0.75)",
+                }}
+              >
+                <div style={{ fontSize: 12, opacity: 0.9 }}>
+                  <div style={{ fontWeight: 800, opacity: 0.9 }}>Estado</div>
+                  <div style={{ marginTop: 2 }}>
+                    <b>{draft.isActive ? "Activo" : "Suspendido"}</b>
+                    <span style={{ opacity: 0.7 }}> · En MVP, “dar de baja” = suspender (no borra datos)</span>
+                  </div>
+                  <div style={{ marginTop: 4, opacity: 0.75 }}>
+                    Suspendido ⇒ no sale en ofertas (menus/active) y no puede iniciar sesión.
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setRestaurantActive(!draft.isActive);
+                  }}
+                  disabled={actionLoading}
+                  style={{
+                    ...btnStyle,
+                    padding: "8px 12px",
+                    background: draft.isActive ? "#fff" : "rgba(0,0,0,0.06)",
+                    opacity: actionLoading ? 0.7 : 1,
+                  }}
+                >
+                  {actionLoading
+                    ? "Procesando"
+                    : draft.isActive
+                      ? "Suspender"
+                      : "Reactivar"}
                 </button>
               </div>
             ) : null}

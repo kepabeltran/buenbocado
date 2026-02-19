@@ -191,6 +191,8 @@ app.get("/api/menus/active", async (req: any) => {
       availableFrom: { lte: now },
       availableTo: { gte: now },
       expiresAt: { gte: now },
+      // Si un restaurante está suspendido/inactivo, sus ofertas no deben aparecer al cliente.
+      restaurant: { isActive: true },
     },
     include: { restaurant: true },
     orderBy: { availableTo: "asc" },
@@ -545,7 +547,7 @@ app.post("/api/orders", { onRequest: [requireAuth("customer")] }, async (req: an
  *   "settlementTimezone":"Europe/Madrid"
  * }
  */
-app.post("/api/admin/restaurants", async (req: any, reply: any) => {
+app.post("/api/admin/restaurants", { onRequest: [requireAuth("admin")] }, async (req: any, reply: any) => {
   const body = (req.body ?? {}) as any;
 
   const name = String(body.name ?? "").trim();
@@ -659,7 +661,7 @@ app.post("/api/admin/restaurants", async (req: any, reply: any) => {
     return reply.code(500).send({ ok: false, error: "INTERNAL_ERROR", message: e?.message ?? String(e) });
   }
 });
-app.get("/api/admin/restaurants", async (_req: any) => {
+app.get("/api/admin/restaurants", { onRequest: [requireAuth("admin")] }, async (_req: any) => {
   const restaurants = await prisma.restaurant.findMany({
     orderBy: { name: "asc" },
     select: {
@@ -690,7 +692,7 @@ app.get("/api/admin/restaurants", async (_req: any) => {
  * ADMIN (MVP): actualizar un restaurante (config + datos básicos).
  * (Más adelante: auth/roles)
  */
-app.patch("/api/admin/restaurants/:id", async (req: any, reply: any) => {
+app.patch("/api/admin/restaurants/:id", { onRequest: [requireAuth("admin")] }, async (req: any, reply: any) => {
   const id = String((req.params as any)?.id ?? "").trim();
   if (!id) {
     return reply
@@ -847,30 +849,50 @@ app.get("/api/orders/:id", async (req: any, reply: any) => {
 
   
 // --- Restaurant Orders (MVP) ---
-// Marcar entregado POR RESTAURANTE (seguro)
+// Marcar entregado POR RESTAURANTE (endpoint interno: soporte/admin)
 app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any, reply: any) => {
   const restaurantId = String((req.params as any)?.restaurantId ?? "").trim();
   const body = (req.body ?? {}) as any;
   const code = String(body.code ?? "").trim();
+
+  // En producción, este endpoint debe estar explícitamente habilitado.
+  const isProd = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
+  const internalEnabled = ["1", "true", "yes", "on"].includes(
+    String(process.env.ENABLE_INTERNAL_ENDPOINTS ?? "").trim().toLowerCase(),
+  );
+  if (isProd && !internalEnabled) {
+    return reply.code(410).send({
+      ok: false,
+      error: "GONE",
+      message: "Endpoint interno deshabilitado en producción",
+    });
+  }
+
+  // Requiere siempre X_INTERNAL_KEY (si no, es una mala configuración).
   const internalKey = String(process.env.X_INTERNAL_KEY ?? "").trim();
+  if (!internalKey) {
+    return reply.code(500).send({
+      ok: false,
+      error: "MISCONFIG",
+      message: "X_INTERNAL_KEY no configurada",
+    });
+  }
+
   const requestInternalKey = String((req.headers as any)?.["x-internal-key"] ?? "").trim();
+  if (!requestInternalKey) {
+    return reply.code(401).send({
+      ok: false,
+      error: "UNAUTHORIZED",
+      message: "Falta X-Internal-Key",
+    });
+  }
 
-  if (internalKey) {
-    if (!requestInternalKey) {
-      return reply.code(401).send({
-        ok: false,
-        error: "UNAUTHORIZED",
-        message: "Falta X-Internal-Key",
-      });
-    }
-
-    if (requestInternalKey !== internalKey) {
-      return reply.code(403).send({
-        ok: false,
-        error: "FORBIDDEN",
-        message: "X-Internal-Key inválida",
-      });
-    }
+  if (requestInternalKey !== internalKey) {
+    return reply.code(403).send({
+      ok: false,
+      error: "FORBIDDEN",
+      message: "X-Internal-Key inválida",
+    });
   }
 
   if (!restaurantId) {
@@ -902,14 +924,22 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
     };
   }
 
-  // Modo estricto (solo desde READY) -> si lo quieres, descomenta:
-  // if (order.status !== OrderStatus.READY) {
-  //   return reply.code(409).send({ ok: false, error: "NOT_READY", message: "El pedido a?n no est? LISTO" });
-  // }
+  // Bloquear estados finales/no entregables
+  if (order.status === "CANCELLED" || order.status === "NOSHOW") {
+    return reply.code(409).send({
+      ok: false,
+      error: "CONFLICT",
+      message: `No se puede entregar un pedido ${order.status}`,
+    });
+  }
 
   const updated = await prisma.order.update({
     where: { id: order.id },
-    data: { status: "DELIVERED" },
+    data: {
+      status: "DELIVERED",
+      deliveredAt: new Date(),
+      deliveredByUserId: null,
+    },
   });
 
   return {
@@ -918,6 +948,7 @@ app.post("/api/restaurants/:restaurantId/orders/mark-delivered", async (req: any
     restaurant: order.menu?.restaurant ? { id: order.menu.restaurant.id, name: order.menu.restaurant.name } : null,
   };
 });
+
 app.post("/api/restaurant/orders/mark-delivered", async (_req: any, reply: any) => {
   return reply.code(410).send({
     ok: false,

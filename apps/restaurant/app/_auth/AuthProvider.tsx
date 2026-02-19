@@ -130,6 +130,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
+  // 🔒 Revisión periódica de sesión: si el restaurante se suspende mientras está logeado,
+  // el API devolverá 403 y aquí lo expulsamos al login automáticamente.
+  useEffect(() => {
+    if (!state.user) return;
+
+    const t = setInterval(async () => {
+      const u = await fetchMe();
+      if (!u) {
+        await logout();
+      }
+    }, 10000);
+
+    return () => clearInterval(t);
+  }, [state.user, fetchMe, logout]);
+
   useEffect(() => {
     if (state.loading) return;
 
