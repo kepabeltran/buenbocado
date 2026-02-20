@@ -58,12 +58,12 @@ function ticketHeadline(s?: string) {
 
 function ticketSubline(s?: string) {
   const v = String(s ?? "").toUpperCase();
-  if (v === "DELIVERED") return "Gracias. ¡Buen provecho!";
-  if (v === "READY") return "Muestra este código o QR en el local para recoger tu pedido.";
+  if (v === "DELIVERED") return "Gracias. Guarda este ticket por si lo necesitas.";
+  if (v === "READY") return "Enseña el código en el local para recoger tu pedido.";
   if (v === "PREPARING") return "Se está preparando. Vuelve en unos minutos.";
   if (v === "EXPIRED") return "Este ticket ya no es válido.";
   if (v === "CANCELLED") return "Este pedido fue cancelado.";
-  return "Reserva hecha. Ya lo tienes guardado en Mis pedidos.";
+  return "Reserva confirmada. Ya lo tienes guardado en Mis pedidos.";
 }
 
 function splitPickup(pickup?: string) {
@@ -162,6 +162,8 @@ export default function TicketPage() {
 
   const [copied, setCopied] = useState(false);
 
+  const [copiedRef, setCopiedRef] = useState(false);
+
   async function copyCode() {
     try {
       if (!codeRaw) return;
@@ -172,6 +174,17 @@ export default function TicketPage() {
       // si falla clipboard, no liamos: el usuario puede seleccionar y copiar
     }
   }
+
+
+  async function copyRef() {
+    try {
+      if (!orderId) return;
+      await navigator.clipboard.writeText(orderId);
+      setCopiedRef(true);
+      window.setTimeout(() => setCopiedRef(false), 1200);
+    } catch {}
+  }
+
 
   useEffect(() => {
     if (!orderId) return;
@@ -274,11 +287,11 @@ export default function TicketPage() {
 
   const instructions =
     isDelivered
-      ? "Comprobante del pedido. Si te lo piden, muestra este código o QR."
+      ? "Si te lo piden, enseña el QR o el código."
       : isInvalid
         ? "Este ticket no es válido. Si crees que es un error, revisa Mis pedidos."
         : (ticket?.instructions && ticket.instructions.trim()) ||
-          "Enseña este código o QR en el local. El restaurante puede escanearlo desde su app.";
+          "Enseña el QR en caja o dicta el código. Si el QR no escanea, el código es suficiente.";
 
   return (
     <main className="min-h-[100svh] bg-[#fafdf7] text-slate-900">
@@ -320,12 +333,7 @@ export default function TicketPage() {
             {headline}
           </h1>
           <p className="text-sm text-slate-500">{subline}</p>
-          {orderId && (
-            <p className="text-[12px] text-slate-400">
-              Ref: <span className="font-mono">{orderId}</span>
-            </p>
-          )}
-        </div>
+</div>
 
         {loading ? (
           <div className="space-y-4">
@@ -353,7 +361,7 @@ export default function TicketPage() {
                 href="/orders"
                 className="w-full text-center rounded-xl bg-white border border-rose-200 py-3 text-sm font-bold text-rose-700 hover:bg-rose-100/40 transition"
               >
-                Volver a Mis pedidos
+                Volver a mis pedidos
               </Link>
               <Link
                 href="/offers"
@@ -378,31 +386,37 @@ export default function TicketPage() {
                   className="rounded-xl bg-white border border-slate-200 px-3 py-2 text-[12px] font-extrabold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition"
                   aria-live="polite"
                 >
-                  {copied ? "Copiado ✓" : "Copiar"}
+                  {copied ? "Copiado ✓" : "Copiar código"}
                 </button>
               </div>
 
               {/* Fecha/hora (clave para la inmediatez) */}
               <div className="mt-3 flex flex-col gap-1 text-[12px] text-slate-500">
-                {ticket.deliveredAt && isDelivered && (
-                  <div>
-                    <span className="font-extrabold text-slate-700">Entregado:</span>{" "}
-                    <span>{formatWhen(ticket.deliveredAt) || "—"}</span>
-                  </div>
-                )}
-                {ticket.createdAt && (
+                {ticket.createdAt ? (
                   <div>
                     <span className="font-extrabold text-slate-700">Realizado:</span>{" "}
                     <span>
                       {formatWhen(ticket.createdAt) || "—"}
                       {!isDelivered && timeAgo(ticket.createdAt) ? ` · ${timeAgo(ticket.createdAt)}` : ""}
                     </span>
+                    {ticket.deliveredAt && isDelivered ? (
+                      <>
+                        <span className="text-slate-400"> · </span>
+                        <span className="font-extrabold text-slate-700">Entregado:</span>{" "}
+                        <span>{formatWhen(ticket.deliveredAt) || "—"}</span>
+                      </>
+                    ) : null}
                   </div>
-                )}
+                ) : ticket.deliveredAt && isDelivered ? (
+                  <div>
+                    <span className="font-extrabold text-slate-700">Entregado:</span>{" "}
+                    <span>{formatWhen(ticket.deliveredAt) || "—"}</span>
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-4 rounded-2xl border border-slate-100 bg-[#fbfdf8] p-4">
-                <div className="text-[12px] font-bold text-slate-500">{isDelivered ? "Código del pedido" : "Código de recogida"}</div>
+                <div className="text-[12px] font-bold text-slate-500">Código de recogida</div>
 
                 <p
                   id="codigo"
@@ -445,13 +459,34 @@ export default function TicketPage() {
                   </div>
                 </div>
               )}
+              {orderId ? (
+                <details className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+                  <summary className="cursor-pointer list-none text-[11px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                    Detalles
+                  </summary>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+                    <span>
+                      ID de pedido: <span className="font-mono text-slate-700">{orderId}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyRef}
+                      className="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      {copiedRef ? "Copiado ✓" : "Copiar ID"}
+                    </button>
+                  </div>
+                </details>
+              ) : null}
+
+
 
               <div className="mt-4 flex flex-col gap-2.5">
                 <Link
                   href="/offers"
                   className="w-full text-center rounded-xl bg-emerald-600 py-3 text-sm font-extrabold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/15"
                 >
-                  Volver a ofertas
+                  Ver ofertas
                 </Link>
 
                 <Link
