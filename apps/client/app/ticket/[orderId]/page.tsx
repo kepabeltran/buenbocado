@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import QRCode from "react-qr-code";
 import { Card } from "@buenbocado/ui";
 
-import QRCode from "react-qr-code";
 import { fetchTicket } from "@/lib/api";
 import { getOrder } from "@/app/_state/orders";
 
@@ -16,7 +16,7 @@ type TicketVM = {
   pickup: string;
   instructions: string;
   source: "api" | "local";
-  // Opcionales por si el API los trae hoy o ma?ana (sin romper)
+  // Opcionales (si el API los trae hoy o mañana, sin romper)
   title?: string | null;
   priceCents?: number | null;
   currency?: string | null;
@@ -24,60 +24,108 @@ type TicketVM = {
 
 function statusLabel(s?: string) {
   const v = String(s ?? "").toUpperCase();
-  if (v === "CREATED") return "Reservado";
+  if (v === "CREATED") return "Confirmado";
   if (v === "PREPARING") return "En preparación";
-  if (v === "READY") return "Listo para recoger";
+  if (v === "READY") return "Listo";
   if (v === "DELIVERED") return "Entregado";
-  return v || "?";
+  if (v === "EXPIRED") return "Caducado";
+  if (v === "CANCELLED") return "Cancelado";
+  return "Pedido";
 }
 
-function statusTone(s?: string) {
+function statusPillClass(s?: string) {
   const v = String(s ?? "").toUpperCase();
-  if (v === "READY") return "bg-emerald-50 text-emerald-800 border-emerald-200";
-  if (v === "PREPARING") return "bg-amber-50 text-amber-800 border-amber-200";
-  if (v === "DELIVERED") return "bg-zinc-100 text-zinc-800 border-zinc-200";
-  return "bg-blue-50 text-blue-800 border-blue-200";
+  if (v === "DELIVERED" || v === "READY")
+    return "bg-emerald-50 border border-emerald-100 text-emerald-700";
+  if (v === "PREPARING")
+    return "bg-amber-50 border border-amber-200 text-amber-700";
+  if (v === "EXPIRED" || v === "CANCELLED")
+    return "bg-rose-50 border border-rose-200 text-rose-700";
+  return "bg-slate-50 border border-slate-200 text-slate-700";
 }
 
-function formatMoney(cents?: number | null, currency?: string | null) {
-  if (typeof cents !== "number") return null;
-  const eur = (cents / 100).toFixed(2).replace(".", ",");
-  const cur = currency ?? "EUR";
-  if (cur === "EUR") return `${eur} ?`;
-  return `${eur} ${cur}`;
+function ticketHeadline(s?: string) {
+  const v = String(s ?? "").toUpperCase();
+  if (v === "DELIVERED") return "Pedido entregado";
+  if (v === "READY") return "Listo para recoger";
+  if (v === "PREPARING") return "En preparación";
+  if (v === "EXPIRED") return "Pedido caducado";
+  if (v === "CANCELLED") return "Pedido cancelado";
+  return "Pedido confirmado";
 }
 
-function normalizeCode(code?: string | null) {
-  const raw = String(code ?? "").trim();
-  const digits = raw.replace(/\D/g, "");
-  // Si parece numérico corto, lo llevamos a 6 dígitos (sin inventar si ya trae letras)
-  if (digits && digits.length <= 6 && digits.length >= 4 && digits === raw) {
-    return digits.padStart(6, "0");
+function ticketSubline(s?: string) {
+  const v = String(s ?? "").toUpperCase();
+  if (v === "DELIVERED") return "Gracias. ¡Buen provecho!";
+  if (v === "READY") return "Muestra este código o QR en el local para recoger tu pedido.";
+  if (v === "PREPARING") return "Se está preparando. Vuelve en unos minutos.";
+  if (v === "EXPIRED") return "Este ticket ya no es válido.";
+  if (v === "CANCELLED") return "Este pedido fue cancelado.";
+  return "Reserva hecha. Ya lo tienes guardado en Mis pedidos.";
+}
+
+function splitPickup(pickup?: string) {
+  const raw = String(pickup ?? "").trim();
+  if (!raw) return { name: "Restaurante", address: "" };
+
+  // Formatos típicos: "NOMBRE · Dirección", "NOMBRE - Dirección"
+  if (raw.includes("·")) {
+    const [a, ...rest] = raw.split("·");
+    return { name: a.trim() || "Restaurante", address: rest.join("·").trim() };
   }
-  return raw || "?";
+  if (raw.includes(" - ")) {
+    const [a, ...rest] = raw.split(" - ");
+    return { name: a.trim() || "Restaurante", address: rest.join(" - ").trim() };
+  }
+  return { name: raw, address: "" };
+}
+
+function formatEurosFromCents(cents?: number | null, currency?: string | null) {
+  if (typeof cents !== "number") return null;
+  const cur = (currency || "EUR").toUpperCase();
+  const amount = cents / 100;
+  try {
+    return amount.toLocaleString("es-ES", { style: "currency", currency: cur });
+  } catch {
+    // fallback simple
+    return `${amount.toFixed(2)} ${cur}`;
+  }
 }
 
 export default function TicketPage() {
-  const params = useParams<{ orderId: string }>();
-  const orderId = String(params?.orderId ?? "").trim();
+  const params = useParams<{ orderId?: string }>();
+  const orderId = String(params?.orderId ?? "");
 
   const [ticket, setTicket] = useState<TicketVM | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const codePretty = useMemo(() => normalizeCode(ticket?.code), [ticket?.code]);
+  const codeRaw = useMemo(() => {
+    const raw = String(ticket?.code ?? "").replace(/\s+/g, "").trim();
+    return raw;
+  }, [ticket?.code]);
+
+  const codePretty = useMemo(() => {
+    if (!codeRaw) return "";
+    return codeRaw.split("").join(" ");
+  }, [codeRaw]);
+
   const money = useMemo(
-    () => formatMoney(ticket?.priceCents ?? null, ticket?.currency ?? null),
+    () => formatEurosFromCents(ticket?.priceCents ?? null, ticket?.currency ?? "EUR"),
     [ticket?.priceCents, ticket?.currency],
+  );
+
+  const { name: restaurantName, address: restaurantAddress } = useMemo(
+    () => splitPickup(ticket?.pickup),
+    [ticket?.pickup],
   );
 
   const [copied, setCopied] = useState(false);
 
   async function copyCode() {
     try {
-      const txt = String(codePretty ?? "").trim();
-      if (!txt || txt === "?") return;
-      await navigator.clipboard.writeText(txt);
+      if (!codeRaw) return;
+      await navigator.clipboard.writeText(codeRaw);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
@@ -87,6 +135,7 @@ export default function TicketPage() {
 
   useEffect(() => {
     if (!orderId) return;
+
     let alive = true;
 
     async function run() {
@@ -107,10 +156,7 @@ export default function TicketPage() {
             status: String(t?.status ?? ""),
             code: String(t?.code ?? (t as any)?.pickupCode ?? (t as any)?.pickup_code ?? ""),
             pickup: String(t?.pickup ?? t?.restaurant ?? "Restaurante"),
-            instructions: String(
-              t?.instructions ??
-                "Enseña este código en el local para recoger tu pedido.",
-            ),
+            instructions: String(t?.instructions ?? ""),
             title: t?.title ?? t?.menuTitle ?? null,
             priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
             currency: typeof t?.currency === "string" ? t.currency : null,
@@ -133,12 +179,9 @@ export default function TicketPage() {
           status: String(local.status ?? ""),
           code: String((local as any).code ?? (local as any).pickupCode ?? ""),
           pickup: String(local.restaurantName ?? "Restaurante"),
-          instructions:
-            "Enseña este código en el local para recoger tu pedido.",
-          // si existiesen en localStorage en el futuro, los cogemos sin romper
+          instructions: String(local.instructions ?? ""),
           title: local.title ?? local.menuTitle ?? null,
-          priceCents:
-            typeof local.priceCents === "number" ? local.priceCents : null,
+          priceCents: typeof local.priceCents === "number" ? local.priceCents : null,
           currency: typeof local.currency === "string" ? local.currency : null,
           source: "local",
         });
@@ -146,7 +189,7 @@ export default function TicketPage() {
         return;
       }
 
-      // 3) ?ltimo intento: por si acaso (si era local pero realmente era API)
+      // 3) Último intento: por si acaso (si era local pero realmente era API)
       try {
         const t: any = await fetchTicket(orderId, { timeoutMs: 2500 });
         if (!alive) return;
@@ -155,10 +198,7 @@ export default function TicketPage() {
           status: String(t?.status ?? ""),
           code: String(t?.code ?? (t as any)?.pickupCode ?? (t as any)?.pickup_code ?? ""),
           pickup: String(t?.pickup ?? t?.restaurant ?? "Restaurante"),
-          instructions: String(
-            t?.instructions ??
-              "Enseña este código en el local para recoger tu pedido.",
-          ),
+          instructions: String(t?.instructions ?? ""),
           title: t?.title ?? t?.menuTitle ?? null,
           priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
           currency: typeof t?.currency === "string" ? t.currency : null,
@@ -169,9 +209,7 @@ export default function TicketPage() {
       } catch {}
 
       if (!alive) return;
-      setError(
-        "No encontramos este pedido. Puede ser un ticket demo antiguo o que ya no exista.",
-      );
+      setError("No encontramos este pedido. Puede ser un ticket demo antiguo o que ya no exista.");
       setLoading(false);
     }
 
@@ -181,30 +219,45 @@ export default function TicketPage() {
     };
   }, [orderId]);
 
+  const state = String(ticket?.status ?? "").toUpperCase();
+  const headline = ticketHeadline(state);
+  const subline = ticketSubline(state);
+
+  const isDelivered = state === "DELIVERED";
+  const isInvalid = state === "EXPIRED" || state === "CANCELLED";
+
+  const instructions =
+    isDelivered
+      ? "Comprobante del pedido. Si te lo piden, muestra este código o QR."
+      : isInvalid
+        ? "Este ticket no es válido. Si crees que es un error, revisa Mis pedidos."
+        : (ticket?.instructions && ticket.instructions.trim()) ||
+          "Enseña este código o QR en el local. El restaurante puede escanearlo desde su app.";
+
   return (
-    <main className="min-h-[100svh] bg-gradient-to-b from-white to-zinc-50 text-zinc-900">
-      <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/70 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+    <main className="min-h-[100svh] bg-[#fafdf7] text-slate-900">
+      {/* Header compacto (alineado con /offers) */}
+      <header className="sticky top-0 z-30 bg-[#fafdf7]/95 backdrop-blur-md px-4 pt-3 pb-3 border-b border-slate-100">
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
           <Link href="/offers" className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-zinc-900 text-white font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-600 text-xs font-extrabold text-white">
               BB
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">BuenBocado</div>
-              <div className="text-xs text-zinc-500">ticket</div>
-            </div>
+            </span>
+            <span className="text-base font-extrabold tracking-tight">
+              Buen<span className="text-emerald-600">Bocado</span>
+            </span>
           </Link>
 
           <div className="flex items-center gap-2">
             <Link
               href="/orders"
-              className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+              className="rounded-xl bg-white border border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition"
             >
               Mis pedidos
             </Link>
             <Link
               href="/offers"
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+              className="rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-extrabold text-white hover:bg-emerald-700 transition shadow-sm"
             >
               Ver ofertas
             </Link>
@@ -212,143 +265,141 @@ export default function TicketPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl px-4 py-10 space-y-6">
-        <header className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-700">
+      <section className="mx-auto max-w-3xl px-4 pt-6 pb-28 space-y-4">
+        <div className="space-y-2">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.32em] text-emerald-600">
             Ticket
           </p>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Pedido confirmado
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            {headline}
           </h1>
+          <p className="text-sm text-slate-500">{subline}</p>
           {orderId && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-[12px] text-slate-400">
               Ref: <span className="font-mono">{orderId}</span>
             </p>
           )}
-        </header>
+        </div>
 
         {loading ? (
-          <Card className="p-6">
-            <p className="text-sm text-zinc-600">Cargando ticket?</p>
-          </Card>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-white border border-slate-100 overflow-hidden animate-pulse">
+              <div className="p-5 space-y-3">
+                <div className="h-3 w-24 bg-slate-100 rounded" />
+                <div className="h-10 w-56 bg-slate-100 rounded-xl" />
+                <div className="h-32 w-32 bg-slate-100 rounded-2xl mx-auto" />
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white border border-slate-100 overflow-hidden animate-pulse">
+              <div className="p-5 space-y-3">
+                <div className="h-3 w-32 bg-slate-100 rounded" />
+                <div className="h-4 w-48 bg-slate-100 rounded" />
+                <div className="h-10 w-full bg-slate-100 rounded-xl" />
+              </div>
+            </div>
+          </div>
         ) : error ? (
-          <Card className="p-6 space-y-3">
-            <p className="text-sm font-semibold text-red-700">
-              No se pudo cargar el ticket
-            </p>
-            <p className="text-sm text-zinc-700">{error}</p>
-            <div className="flex flex-wrap gap-2">
+          <Card className="p-6 space-y-3 rounded-2xl border border-rose-200 bg-rose-50">
+            <p className="text-sm font-extrabold text-rose-700">No se pudo cargar el ticket</p>
+            <p className="text-sm text-rose-700/90">{error}</p>
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
               <Link
                 href="/orders"
-                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+                className="w-full text-center rounded-xl bg-white border border-rose-200 py-3 text-sm font-bold text-rose-700 hover:bg-rose-100/40 transition"
               >
                 Volver a Mis pedidos
               </Link>
               <Link
                 href="/offers"
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+                className="w-full text-center rounded-xl bg-emerald-600 py-3 text-sm font-extrabold text-white hover:bg-emerald-700 transition"
               >
                 Ver ofertas
               </Link>
             </div>
           </Card>
         ) : ticket ? (
-          <div className="grid gap-4 md:grid-cols-[2fr,1fr]">
-            {/* IZQUIERDA: info principal */}
-            <Card className="space-y-5 p-6">
-              {/* código grande */}
-              <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-slate-600">
-                    código de recogida
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copyCode}
-                    className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-                    aria-live="polite"
-                  >
-                    {copied ? "Copiado ?" : "Copiar"}
-                  </button>
-                </div>
+          <div className="space-y-4">
+            {/* CARD PRINCIPAL: Código + QR */}
+            <Card className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className={"inline-flex items-center rounded-full px-3 py-1 text-[12px] font-extrabold " + statusPillClass(ticket.status)}>
+                  {statusLabel(ticket.status)}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="rounded-xl bg-white border border-slate-200 px-3 py-2 text-[12px] font-extrabold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition"
+                  aria-live="polite"
+                >
+                  {copied ? "Copiado ✓" : "Copiar"}
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-100 bg-[#fbfdf8] p-4">
+                <div className="text-[12px] font-bold text-slate-500">{isDelivered ? "Código del pedido" : "Código de recogida"}</div>
 
                 <p
                   id="codigo"
-                  className="mt-3 text-5xl sm:text-6xl font-extrabold text-brand-700 tracking-[0.25em] select-all"
+                  className="mt-2 text-5xl sm:text-6xl font-extrabold text-emerald-700 tracking-[0.25em] select-all text-center"
                 >
-                  {codePretty}
+                  {codePretty || "—"}
                 </p>
 
-                {/* QR */}
+                {/* QR SIEMPRE */}
                 <div className="mt-4 flex justify-center">
-                  <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                    <QRCode value={String(codePretty ?? "").trim() || " "} size={128} />
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <QRCode value={codeRaw || " "} size={144} />
                   </div>
                 </div>
 
-                <p className="mt-3 text-sm text-zinc-600">
-                  Enséñalo en el local. Sin historias.
-                </p>
+                <p className="mt-2 text-[13px] text-slate-600 text-center">{instructions}</p>
+              </div>
+            </Card>
+
+            {/* CARD DETALLES: Restaurante + pedido + acciones */}
+            <Card className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                Restaurante
               </div>
 
-              {/* Estado */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(
-                    ticket.status,
-                  )}`}
-                >
-                  {statusLabel(ticket.status)}
-                </span>
-                <span className="text-xs text-zinc-500">
-                  {ticket.source === "api" ? "Origen: API" : "Origen: local"}
-                </span>
+              <div className="mt-1 text-lg font-extrabold text-slate-900">
+                {restaurantName}
               </div>
+              {restaurantAddress && (
+                <div className="text-sm text-slate-500">{restaurantAddress}</div>
+              )}
 
-              {/* Restaurante / detalles */}
-              <div className="space-y-2">
-                <div className="text-sm text-slate-600">Restaurante</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {ticket.pickup || "Restaurante"}
-                </div>
-
-                {(ticket.title || money) && (
-                  <div className="text-sm text-zinc-700">
-                    {ticket.title ? (
-                      <span className="font-medium">{ticket.title}</span>
-                    ) : null}
-                    {ticket.title && money ? <span> ? </span> : null}
-                    {money ? (
-                      <span className="font-semibold">{money}</span>
-                    ) : null}
+              {(ticket.title || money) && (
+                <div className="mt-3 rounded-xl bg-white border border-slate-100 px-4 py-3">
+                  <div className="text-[11px] font-bold text-slate-500">Detalle</div>
+                  <div className="mt-1 text-sm text-slate-900">
+                    {ticket.title ? <span className="font-semibold">{ticket.title}</span> : null}
+                    {ticket.title && money ? <span className="text-slate-400"> · </span> : null}
+                    {money ? <span className="font-extrabold">{money}</span> : null}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
-              {/* Instrucciones */}
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                {ticket.instructions}
-              </div>
-
-              <div className="pt-1 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-col gap-2.5">
                 <Link
                   href="/offers"
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+                  className="w-full text-center rounded-xl bg-emerald-600 py-3 text-sm font-extrabold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/15"
                 >
                   Volver a ofertas
                 </Link>
+
                 <Link
                   href="/orders"
-                  className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+                  className="w-full text-center rounded-xl bg-white border border-slate-200 py-3 text-sm font-bold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition"
                 >
                   Mis pedidos
                 </Link>
               </div>
             </Card>
-</div>
+          </div>
         ) : null}
       </section>
     </main>
   );
 }
-
