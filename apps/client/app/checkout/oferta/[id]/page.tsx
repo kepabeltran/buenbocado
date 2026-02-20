@@ -57,6 +57,10 @@ export default function CheckoutPage() {
     total: string;
   } | null>(null);
 
+  const [redirecting, setRedirecting] = useState(false);
+
+  const [showTicketFallback, setShowTicketFallback] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
       router.push(`/auth?redirect=/checkout/oferta/${menuId}`);
@@ -80,6 +84,28 @@ export default function CheckoutPage() {
   }, [menuId]);
 
   useEffect(() => { if (isLoggedIn) loadMenu(); }, [loadMenu, isLoggedIn]);
+
+  useEffect(() => {
+  const oid = orderResult?.orderId;
+  if (!oid) return;
+
+  setRedirecting(true);
+  setShowTicketFallback(false);
+
+  // Prefetch: ayuda a que el ticket cargue antes (si Next lo soporta)
+  try { (router as any).prefetch?.(`/ticket/${oid}`); } catch {}
+
+  // Fallback: si por lo que sea no navega, mostramos un botón al cabo de 2.5s
+  const t = window.setTimeout(() => setShowTicketFallback(true), 2500);
+
+  try {
+    router.replace(`/ticket/${oid}`);
+  } catch {}
+
+  return () => {
+    try { window.clearTimeout(t); } catch {}
+  };
+}, [orderResult?.orderId, router]);
 
   async function handleSubmit() {
     if (!menu || !user) return;
@@ -111,7 +137,7 @@ export default function CheckoutPage() {
         menuTitle: String(json.menu?.title || menu.title),
         total: formatMoney(json.menu?.priceCents || menu.priceCents, json.menu?.currency || menu.currency),
       });
-      if (oid) { router.replace(`/ticket/${oid}`); return; }
+      if (oid) setRedirecting(true);
 
     } catch (e: any) {
       setError(String(e?.message || e));
@@ -140,7 +166,22 @@ export default function CheckoutPage() {
               <p className="mt-1.5 text-sm text-slate-400">
                 Enseña este código en <span className="font-semibold text-slate-700">{orderResult.restaurant}</span> para recoger tu pedido.
               </p>
-            </div>
+                          {redirecting ? (
+                <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                  <p className="text-sm font-semibold text-slate-700">Abriendo tu ticket…</p>
+                
+{showTicketFallback ? (
+  <Link
+    href={`/ticket/${orderResult.orderId}`}
+    className="ml-2 text-sm font-bold text-emerald-700 underline decoration-emerald-300 hover:text-emerald-800"
+  >
+    Si no se abre, pulsa aquí
+  </Link>
+) : null}
+</div>
+              ) : null}
+</div>
 
             <div className="mt-5 rounded-2xl bg-slate-50 border border-slate-100 p-4 text-center">
               <div className="mx-auto w-fit rounded-xl bg-white p-3 border border-slate-100 shadow-sm">
