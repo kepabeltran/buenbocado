@@ -1,5 +1,21 @@
 "use client";
 
+function kickToLogin() {
+  try {
+    localStorage.removeItem("bb_admin_token");
+    localStorage.removeItem("bb_admin_user");
+  } catch {}
+  if (typeof window !== "undefined") window.location.replace("/admin/login");
+}
+
+function getTokenOrKick() {
+  if (typeof window === "undefined") return null;
+  const t = localStorage.getItem("bb_admin_token");
+  if (!t) { window.location.replace("/admin/login"); return null; }
+  return t;
+}
+
+
 import { useCallback, useEffect, useState } from "react";
 
 const API_BASE = (
@@ -88,7 +104,7 @@ export default function AdminSettlementsPage() {
   const [detail, setDetail] = useState<any>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
     setLoading(true);
 
@@ -96,6 +112,7 @@ export default function AdminSettlementsPage() {
       const res = await fetch(API_BASE + "/api/admin/settlements?take=100", {
         headers: { Authorization: "Bearer " + token },
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setSettlements(json.data || []);
@@ -117,7 +134,7 @@ export default function AdminSettlementsPage() {
   }, [msg]);
 
   async function generate() {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
     setGenerating(true);
     setMsg(null);
@@ -131,6 +148,7 @@ export default function AdminSettlementsPage() {
           periodEnd: new Date(genEnd).toISOString(),
         }),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setMsg({ type: "ok", text: json.created > 0 ? json.created + " liquidaciones generadas" : "No hay pedidos pendientes en este periodo" });
@@ -144,7 +162,7 @@ export default function AdminSettlementsPage() {
 
   async function changeStatus() {
     if (!changing || !newStatus) return;
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
 
     try {
@@ -153,6 +171,7 @@ export default function AdminSettlementsPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, notes }),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setMsg({ type: "ok", text: "Estado actualizado a " + (STATUS_LABELS[newStatus] || newStatus) });
@@ -166,13 +185,14 @@ export default function AdminSettlementsPage() {
   }
 
   async function viewDetail(s: SettlementDto) {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
 
     try {
       const res = await fetch(API_BASE + "/api/admin/settlements/" + s.id, {
         headers: { Authorization: "Bearer " + token },
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setDetail(json.data);

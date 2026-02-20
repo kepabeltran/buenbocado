@@ -49,6 +49,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [orderResult, setOrderResult] = useState<{
+    orderId: string;
     code: string;
     restaurant: string;
   restaurantAddress?: string | null;
@@ -101,14 +102,17 @@ export default function CheckoutPage() {
         if (json?.error === "OUT_OF_STOCK") throw new Error("Se han agotado justo ahora. Prueba con otra oferta.");
         throw new Error(json?.message || "Error al reservar");
       }
+      const oid = String(json.order?.id || "");
       setOrderResult({
-        orderId: String(json.order?.id || ""),
+        orderId: oid,
         code: String(json.order?.code || "------").replace(/\s+/g, ""),
         restaurant: String(json.menu?.restaurant || menu.restaurant),
         restaurantAddress: (menu as any)?.restaurantAddress ?? null,
         menuTitle: String(json.menu?.title || menu.title),
         total: formatMoney(json.menu?.priceCents || menu.priceCents, json.menu?.currency || menu.currency),
       });
+      if (oid) { router.replace(`/ticket/${oid}`); return; }
+
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {

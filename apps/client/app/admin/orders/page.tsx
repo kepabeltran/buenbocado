@@ -53,9 +53,19 @@ function formatDate(iso: string) {
   return d.toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function getToken() {
+function kickToLogin() {
+  try {
+    localStorage.removeItem("bb_admin_token");
+    localStorage.removeItem("bb_admin_user");
+  } catch {}
+  if (typeof window !== "undefined") window.location.replace("/admin/login");
+}
+
+function getTokenOrKick() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("bb_admin_token");
+  const t = localStorage.getItem("bb_admin_token");
+  if (!t) { window.location.replace("/admin/login"); return null; }
+  return t;
 }
 
 export default function AdminOrdersPage() {
@@ -76,7 +86,7 @@ export default function AdminOrdersPage() {
   const [changeMsg, setChangeMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
     setLoading(true);
     setError(null);
@@ -91,6 +101,7 @@ export default function AdminOrdersPage() {
       const res = await fetch(API_BASE + "/api/admin/orders?" + params.toString(), {
         headers: { Authorization: "Bearer " + token },
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setOrders(json.data || []);
@@ -106,7 +117,7 @@ export default function AdminOrdersPage() {
 
   async function changeStatus() {
     if (!changing || !newStatus) return;
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
     setChangeMsg(null);
 

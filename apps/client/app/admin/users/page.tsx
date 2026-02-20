@@ -23,9 +23,19 @@ type RestaurantDto = {
   name: string;
 };
 
-function getToken() {
+function kickToLogin() {
+  try {
+    localStorage.removeItem("bb_admin_token");
+    localStorage.removeItem("bb_admin_user");
+  } catch {}
+  if (typeof window !== "undefined") window.location.replace("/admin/login");
+}
+
+function getTokenOrKick() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("bb_admin_token");
+  const t = localStorage.getItem("bb_admin_token");
+  if (!t) { window.location.replace("/admin/login"); return null; }
+  return t;
 }
 
 function formatDate(iso: string) {
@@ -56,7 +66,7 @@ export default function AdminUsersPage() {
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
 
     try {
@@ -87,7 +97,7 @@ export default function AdminUsersPage() {
   }, [msg]);
 
   async function createUser() {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
     setMsg(null);
     setFormBusy(true);
@@ -108,6 +118,7 @@ export default function AdminUsersPage() {
         }),
       });
 
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error creando usuario");
 
@@ -127,7 +138,7 @@ export default function AdminUsersPage() {
     const newPw = prompt("Nueva contraseña (mín. 6 caracteres):");
     if (!newPw || newPw.length < 6) { alert("Contraseña muy corta"); return; }
 
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
 
     try {
@@ -136,6 +147,7 @@ export default function AdminUsersPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({ password: newPw }),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error");
       setMsg({ type: "ok", text: "Contraseña actualizada" });
@@ -145,7 +157,7 @@ export default function AdminUsersPage() {
   }
 
   async function sendCredentials(userId: string) {
-    const token = getToken();
+    const token = getTokenOrKick();
     if (!token) return;
 
     const user = users.find((u) => u.id === userId);
@@ -162,6 +174,7 @@ export default function AdminUsersPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Error enviando credenciales");
 

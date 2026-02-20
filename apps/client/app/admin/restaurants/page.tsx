@@ -32,9 +32,19 @@ const API_BASE = (
   "http://127.0.0.1:4000"
 ).replace(/\/$/, "");
 
-function getToken() {
+function kickToLogin() {
+  try {
+    localStorage.removeItem("bb_admin_token");
+    localStorage.removeItem("bb_admin_user");
+  } catch {}
+  if (typeof window !== "undefined") window.location.replace("/admin/login");
+}
+
+function getTokenOrKick() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("bb_admin_token");
+  const t = localStorage.getItem("bb_admin_token");
+  if (!t) { window.location.replace("/admin/login"); return null; }
+  return t;
 }
 
 function pctFromBps(bps: number) {
@@ -102,16 +112,14 @@ export default function AdminRestaurantsPage() {
     setLoading(true);
     setErr(null);
     try {
-      const token = getToken();
-      if (!token) {
-        window.location.href = "/admin/login";
-        return;
-      }
+      const token = getTokenOrKick();
+      if (!token) return;
 
-      const res = await fetch(`${API_BASE}/api/admin/restaurants`, {
+const res = await fetch(`${API_BASE}/api/admin/restaurants`, {
         cache: "no-store",
         headers: { Authorization: "Bearer " + token },
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const j = await res.json();
       if (!j?.ok) throw new Error(j?.message || "Error cargando restaurantes");
       setItems(j.data || []);
@@ -186,13 +194,10 @@ export default function AdminRestaurantsPage() {
 
   async function setRestaurantActive(nextActive: boolean) {
     if (!editingId) return;
-    const token = getToken();
-    if (!token) {
-      window.location.href = "/admin/login";
-      return;
-    }
+    const token = getTokenOrKick();
+    if (!token) return;
 
-    const label = nextActive ? "reactivar" : "suspender";
+const label = nextActive ? "reactivar" : "suspender";
     const ok = window.confirm(
       nextActive
         ? "¿Reactivar este restaurante? Volverá a aparecer en la app y podrá iniciar sesión."
@@ -210,6 +215,7 @@ export default function AdminRestaurantsPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: nextActive }),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const j = await res.json();
       if (!j?.ok) throw new Error(j?.message || `No se pudo ${label}`);
 
@@ -226,12 +232,10 @@ export default function AdminRestaurantsPage() {
 
   async function save() {
     if (!editingId) return;
-    const token = getToken();
-    if (!token) {
-      window.location.href = "/admin/login";
-      return;
-    }
-    setSavedMsg(null);
+    const token = getTokenOrKick();
+    if (!token) return;
+
+setSavedMsg(null);
     setErr(null);
 
     const payload = {
@@ -255,6 +259,7 @@ export default function AdminRestaurantsPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const j = await res.json();
       if (!j?.ok) throw new Error(j?.message || "Error guardando");
       setSavedMsg("Guardado ");
@@ -269,13 +274,10 @@ export default function AdminRestaurantsPage() {
     setSavedMsg(null);
     setErr(null);
 
-    const token = getToken();
-    if (!token) {
-      window.location.href = "/admin/login";
-      return;
-    }
+    const token = getTokenOrKick();
+    if (!token) return;
 
-    const name = String(draft.name ?? "").trim();
+const name = String(draft.name ?? "").trim();
     const address = String(draft.address ?? "").trim();
     const zoneTag = String(draft.zoneTag ?? "").trim();
     const lat = Number(draft.lat);
@@ -312,6 +314,7 @@ export default function AdminRestaurantsPage() {
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
       const j = await res.json();
       if (!j?.ok) throw new Error(j?.message || "Error creando restaurante");
 

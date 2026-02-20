@@ -2,20 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../_auth/AuthProvider";
 
 export default function AdminIndexPage() {
-  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.push("/admin/login");
-    } else {
-      router.push("/admin/orders");
-    }
-  }, [loading, user, router]);
+    // Landing del admin: el layout ya valida token/rol. Aquí solo redirigimos.
+    router.replace("/admin/orders");
+  }, [router]);
 
   return (
     <div className="grid min-h-screen place-items-center">
