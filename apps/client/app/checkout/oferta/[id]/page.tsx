@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../../_auth/AuthProvider";
+import QRCode from "react-qr-code";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -16,6 +17,7 @@ type MenuInfo = {
   title: string;
   description: string | null;
   restaurant: string;
+  restaurantAddress?: string | null;
   type: string;
   priceCents: number;
   currency: string;
@@ -34,17 +36,6 @@ function fixImg(u: string | null) {
   return u.replace("http://127.0.0.1:4000", API_BASE).replace("http://localhost:4000", API_BASE);
 }
 
-function QRCode({ value, size = 200 }: { value: string; size?: number }) {
-  return (
-    <img
-      src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&margin=8`}
-      alt={`Código QR: ${value}`}
-      width={size}
-      height={size}
-      className="mx-auto rounded-xl"
-    />
-  );
-}
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -60,6 +51,7 @@ export default function CheckoutPage() {
   const [orderResult, setOrderResult] = useState<{
     code: string;
     restaurant: string;
+  restaurantAddress?: string | null;
     menuTitle: string;
     total: string;
   } | null>(null);
@@ -110,9 +102,11 @@ export default function CheckoutPage() {
         throw new Error(json?.message || "Error al reservar");
       }
       setOrderResult({
-        code: json.order?.code || "------",
-        restaurant: json.menu?.restaurant || menu.restaurant,
-        menuTitle: json.menu?.title || menu.title,
+        orderId: String(json.order?.id || ""),
+        code: String(json.order?.code || "------").replace(/\s+/g, ""),
+        restaurant: String(json.menu?.restaurant || menu.restaurant),
+        restaurantAddress: (menu as any)?.restaurantAddress ?? null,
+        menuTitle: String(json.menu?.title || menu.title),
         total: formatMoney(json.menu?.priceCents || menu.priceCents, json.menu?.currency || menu.currency),
       });
     } catch (e: any) {
@@ -124,71 +118,95 @@ export default function CheckoutPage() {
 
   // ── CONFIRMACIÓN CON QR ───────────────────────
   if (orderResult) {
+    const hasTicket = Boolean(orderResult.orderId);
+
     return (
       <main className="min-h-screen bg-[#fafdf7]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
-        <div className="mx-auto max-w-[480px] px-4 py-10">
-          <div className="rounded-2xl bg-white border border-slate-100 p-6 text-center shadow-sm">
-            <div className="mx-auto h-14 w-14 rounded-full bg-emerald-100 grid place-items-center">
-              <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+        <div className="mx-auto max-w-[520px] px-4 py-10">
+          <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
+            <div className="text-center">
+              <div className="mx-auto h-14 w-14 rounded-full bg-emerald-100 grid place-items-center">
+                <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+
+              <h1 className="mt-4 text-xl font-extrabold text-slate-900">Reserva confirmada</h1>
+              <p className="mt-1.5 text-sm text-slate-400">
+                Enseña este código en <span className="font-semibold text-slate-700">{orderResult.restaurant}</span> para recoger tu pedido.
+              </p>
             </div>
 
-            <h1 className="mt-4 text-xl font-extrabold text-slate-900">Reserva confirmada</h1>
-            <p className="mt-1.5 text-sm text-slate-400">
-              Muestra este código en {orderResult.restaurant} para recoger tu pedido.
-            </p>
+            <div className="mt-5 rounded-2xl bg-slate-50 border border-slate-100 p-4 text-center">
+              <div className="mx-auto w-fit rounded-xl bg-white p-3 border border-slate-100 shadow-sm">
+                <QRCode value={orderResult.code} size={160} />
+              </div>
 
-            <div className="mt-5">
-              <QRCode value={orderResult.code} size={160} />
-            </div>
+              <p className="mt-3 text-xs text-slate-500">
+                Si estás en el local, enséñalo para que lo escaneen. Si lo necesitas, también puedes dictar el código.
+              </p>
 
-            <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-100 py-4 px-4">
-              <p className="text-[10px] uppercase tracking-widest text-emerald-600 font-bold">Código de recogida</p>
-              <p className="mt-1 text-3xl font-extrabold tracking-[0.2em] text-slate-900 font-mono">
-                {orderResult.code}
+              <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-100 py-3 px-4">
+                <p className="text-[10px] uppercase tracking-widest text-emerald-700 font-bold">Código de recogida</p>
+                <p className="mt-1 text-3xl font-extrabold tracking-[0.2em] text-slate-900 font-mono">{orderResult.code}</p>
+              </div>
+
+              <p className="mt-2 text-xs text-slate-400">
+                Guardado en{" "}
+                <Link href="/orders" className="font-semibold text-slate-600 hover:text-emerald-700 underline">
+                  Mis pedidos
+                </Link>
+                .
               </p>
             </div>
 
             <div className="mt-5 space-y-2 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-3">
                 <span className="text-slate-400">Oferta</span>
-                <span className="font-bold text-slate-900">{orderResult.menuTitle}</span>
+                <span className="font-bold text-slate-900 text-right">{orderResult.menuTitle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-3">
                 <span className="text-slate-400">Restaurante</span>
-                <span className="font-bold text-slate-900">{orderResult.restaurant}</span>
+                <span className="font-bold text-slate-900 text-right">{orderResult.restaurant}</span>
               </div>
-              <div className="flex justify-between items-center">
+              {orderResult.restaurantAddress ? (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-400">Dirección</span>
+                  <span className="font-bold text-slate-900 text-right">{orderResult.restaurantAddress}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between items-center gap-3">
                 <span className="text-slate-400">Total</span>
                 <span className="font-extrabold text-lg text-emerald-600">{orderResult.total}</span>
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
-              <p className="text-xs text-amber-700">
-                También hemos enviado este código a tu email.
-              </p>
-            </div>
+            <div className="mt-6 grid gap-2">
+              {hasTicket ? (
+                <Link
+                  href={`/ticket/${orderResult.orderId}`}
+                  className="block w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition text-center"
+                >
+                  Ver ticket
+                </Link>
+              ) : null}
 
-            <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-left">
-              <p className="text-xs text-slate-500">
-                Pago seguro a través de nuestra plataforma.
-              </p>
-            </div>
-
-            <div className="mt-6">
               <Link
                 href="/offers"
-                className="block w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition"
+                className="block w-full rounded-xl bg-white border border-slate-200 py-3 text-sm font-bold text-slate-800 hover:border-emerald-300 transition text-center"
               >
                 Ver más ofertas
               </Link>
             </div>
+
+            <p className="mt-4 text-center text-[11px] text-slate-400">Pago seguro a través de nuestra plataforma.</p>
           </div>
         </div>
       </main>
     );
   }
+
 
   // ── CARGANDO / REDIRIGIENDO ───────────────────
   if (authLoading || !isLoggedIn) {

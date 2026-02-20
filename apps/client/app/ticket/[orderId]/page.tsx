@@ -20,6 +20,8 @@ type TicketVM = {
   title?: string | null;
   priceCents?: number | null;
   currency?: string | null;
+  createdAt?: string | null;
+  deliveredAt?: string | null;
 };
 
 function statusLabel(s?: string) {
@@ -92,6 +94,44 @@ function formatEurosFromCents(cents?: number | null, currency?: string | null) {
   }
 }
 
+function sameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatWhen(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const now = new Date();
+  const time = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+  if (sameDay(d, now)) return `Hoy ${time}`;
+
+  const date = d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+  return `${date} ${time}`;
+}
+
+function timeAgo(iso?: string | null) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+
+  const diff = Date.now() - t;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Ahora mismo";
+  if (mins < 60) return `Hace ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Hace ${days}d`;
+}
+
+
 export default function TicketPage() {
   const params = useParams<{ orderId?: string }>();
   const orderId = String(params?.orderId ?? "");
@@ -160,6 +200,8 @@ export default function TicketPage() {
             title: t?.title ?? t?.menuTitle ?? null,
             priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
             currency: typeof t?.currency === "string" ? t.currency : null,
+            createdAt: typeof t?.createdAt === "string" ? t.createdAt : t?.createdAt ? String(t.createdAt) : null,
+            deliveredAt: typeof t?.deliveredAt === "string" ? t.deliveredAt : t?.deliveredAt ? String(t.deliveredAt) : null,
             source: "api",
           });
 
@@ -183,6 +225,8 @@ export default function TicketPage() {
           title: local.title ?? local.menuTitle ?? null,
           priceCents: typeof local.priceCents === "number" ? local.priceCents : null,
           currency: typeof local.currency === "string" ? local.currency : null,
+          createdAt: typeof local?.createdAt === "string" ? local.createdAt : local?.createdAt ? String(local.createdAt) : null,
+          deliveredAt: typeof local?.deliveredAt === "string" ? local.deliveredAt : local?.deliveredAt ? String(local.deliveredAt) : null,
           source: "local",
         });
         setLoading(false);
@@ -202,7 +246,9 @@ export default function TicketPage() {
           title: t?.title ?? t?.menuTitle ?? null,
           priceCents: typeof t?.priceCents === "number" ? t.priceCents : null,
           currency: typeof t?.currency === "string" ? t.currency : null,
-          source: "api",
+          createdAt: typeof t?.createdAt === "string" ? t.createdAt : t?.createdAt ? String(t.createdAt) : null,
+            deliveredAt: typeof t?.deliveredAt === "string" ? t.deliveredAt : t?.deliveredAt ? String(t.deliveredAt) : null,
+            source: "api",
         });
         setLoading(false);
         return;
@@ -334,6 +380,25 @@ export default function TicketPage() {
                 >
                   {copied ? "Copiado ✓" : "Copiar"}
                 </button>
+              </div>
+
+              {/* Fecha/hora (clave para la inmediatez) */}
+              <div className="mt-3 flex flex-col gap-1 text-[12px] text-slate-500">
+                {ticket.deliveredAt && isDelivered && (
+                  <div>
+                    <span className="font-extrabold text-slate-700">Entregado:</span>{" "}
+                    <span>{formatWhen(ticket.deliveredAt) || "—"}</span>
+                  </div>
+                )}
+                {ticket.createdAt && (
+                  <div>
+                    <span className="font-extrabold text-slate-700">Realizado:</span>{" "}
+                    <span>
+                      {formatWhen(ticket.createdAt) || "—"}
+                      {!isDelivered && timeAgo(ticket.createdAt) ? ` · ${timeAgo(ticket.createdAt)}` : ""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 rounded-2xl border border-slate-100 bg-[#fbfdf8] p-4">

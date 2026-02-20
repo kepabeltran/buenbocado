@@ -110,11 +110,14 @@ export async function fetchTicket(orderId: string, opts?: FetchOpts) {
   const code = String(j?.order?.code ?? "");
   const status = String(j?.order?.status ?? "");
 
+  const createdAt = j?.order?.createdAt ? String(j.order.createdAt) : null;
+  const deliveredAt = j?.order?.deliveredAt ? String(j.order.deliveredAt) : null;
+
   // Instrucciones mínimas (luego las refinamos cuando definamos UX final)
   const instructions =
     restaurantAddress
-      ? "Enseña este código en el local para recoger tu pedido."
-      : "Enseña este código en el local para recoger tu pedido.";
+      ? "Enseña este código o QR en el local para recoger tu pedido."
+      : "Enseña este código o QR en el local para recoger tu pedido.";
 
   return {
     id: String(j?.order?.id ?? orderId),
@@ -122,11 +125,27 @@ export async function fetchTicket(orderId: string, opts?: FetchOpts) {
     code,
     pickup,
     instructions,
+    createdAt,
+    deliveredAt,
+    // Opcionales (si el API los trae)
+    title: j?.menu?.title ?? null,
+    priceCents:
+      typeof j?.menu?.priceCents === "number"
+        ? j.menu.priceCents
+        : typeof j?.order?.totalCents === "number"
+          ? j.order.totalCents
+          : null,
+    currency: typeof j?.menu?.currency === "string" ? j.menu.currency : "EUR",
   } as {
     id: string;
     status: string;
     code: string;
     pickup: string;
     instructions: string;
+    createdAt: string | null;
+    deliveredAt: string | null;
+    title?: string | null;
+    priceCents?: number | null;
+    currency?: string | null;
   };
 }

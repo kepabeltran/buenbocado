@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import QRCode from "react-qr-code";
 import { useAuth } from "../_auth/AuthProvider";
 
 const API_BASE = (
@@ -16,6 +17,7 @@ type Order = {
   code: string;
   status: string;
   createdAt: string;
+  deliveredAt?: string | null;
   menu: {
     id: string;
     title: string;
@@ -48,6 +50,24 @@ function fixImg(u: string | null | undefined) {
   if (!u) return null;
   if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
   return u.replace("http://127.0.0.1:4000", API_BASE).replace("http://localhost:4000", API_BASE);
+}
+
+function sameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatWhen(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = new Date();
+  const time = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  if (sameDay(d, now)) return `Hoy ${time}`;
+  const date = d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+  return `${date} ${time}`;
 }
 
 function timeAgo(dateStr: string) {
@@ -228,7 +248,7 @@ export default function OrdersPage() {
               const status = statusLabel(order.status);
               const isCancelled = order.status === "CANCELLED";
               return (
-                <div key={order.id} className={"rounded-2xl bg-white border border-slate-100 p-3.5 shadow-sm transition " + (isCancelled ? "opacity-50" : "")}>
+                <Link href={`/ticket/${order.id}`} key={order.id} className={"block rounded-2xl bg-white border border-slate-100 p-3.5 shadow-sm transition hover:border-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200 " + (isCancelled ? "opacity-50" : "")}>
                   <div className="flex gap-3">
                     <div className={"h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 " + (isCancelled ? "grayscale" : "")}>
                       {img ? (
@@ -253,23 +273,21 @@ export default function OrdersPage() {
                         <span className="text-sm font-extrabold text-emerald-600">
                           {order.menu ? formatMoney(order.menu.priceCents) : "—"}
                         </span>
-                        <span className="text-xs text-slate-400">{timeAgo(order.createdAt)}</span>
+                        <span className="text-xs text-slate-400">{order.status === "DELIVERED" && order.deliveredAt ? `Entregado · ${formatWhen(order.deliveredAt)}` : `${formatWhen(order.createdAt)} · ${timeAgo(order.createdAt)}`}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-xs font-mono font-bold text-slate-600 tracking-wider">
                           {order.code}
                         </span>
                         {isActive(order.status) && (
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(order.code)}&margin=4`}
-                            alt="QR"
-                            className="h-8 w-8 rounded"
-                          />
+                          <div className="h-8 w-8 rounded bg-white border border-slate-100 p-0.5">
+                            <QRCode value={String(order.code).replace(/\s+/g, "")} size={28} />
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

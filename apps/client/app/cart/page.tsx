@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
 import { useCart } from "../_state/cart";
 import { useAuth } from "../_auth/AuthProvider";
 
@@ -22,19 +23,8 @@ function fixImg(u: string | null | undefined) {
   return u.replace("http://127.0.0.1:4000", API_BASE).replace("http://localhost:4000", API_BASE);
 }
 
-function QRCode({ value, size = 160 }: { value: string; size?: number }) {
-  return (
-    <img
-      src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&margin=8`}
-      alt={`Código QR: ${value}`}
-      width={size}
-      height={size}
-      className="mx-auto rounded-xl"
-    />
-  );
-}
 
-type OrderResult = { code: string; menuTitle: string; total: string };
+type OrderResult = { orderId?: string; code: string; menuTitle: string; total: string };
 type RestaurantInfo = { name: string; address: string | null };
 
 export default function CartPage() {
@@ -110,14 +100,23 @@ export default function CartPage() {
             throw new Error(json?.message || "Error al reservar");
           }
           orderResults.push({
+            orderId: json.order?.id,
             code: json.order?.code || "------",
             menuTitle: json.menu?.title || item.title,
             total: formatMoney(json.menu?.priceCents || item.priceCents),
           });
         }
       }
-      setResults(orderResults);
       clear();
+
+      // Si solo se ha generado 1 pedido, vamos directos al ticket (flujo principal)
+      if (orderResults.length === 1 && orderResults[0]?.orderId) {
+        router.push(`/ticket/${orderResults[0].orderId}`);
+        return;
+      }
+
+      // Si hay varios, mostramos la pantalla de confirmación con enlaces a cada ticket
+      setResults(orderResults);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -142,7 +141,7 @@ export default function CartPage() {
             <h1 className="mt-4 text-xl font-extrabold text-slate-900">
               {results.length === 1 ? "Reserva confirmada" : `${results.length} reservas confirmadas`}
             </h1>
-            <p className="mt-1.5 text-sm text-slate-400">Muestra estos códigos en el restaurante para recoger.</p>
+            <p className="mt-1.5 text-sm text-slate-400">{results.length === 1 ? "Muestra este código" : "Muestra estos códigos"} en el restaurante para recoger.</p>
 
             {/* Dirección del restaurante */}
             {restaurantInfo?.address && (
@@ -163,9 +162,14 @@ export default function CartPage() {
               {results.map((r, i) => (
                 <div key={i} className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
                   <p className="text-xs font-bold text-emerald-700">{r.menuTitle}</p>
-                  <div className="mt-2"><QRCode value={r.code} size={120} /></div>
+                  <div className="mt-2 inline-block rounded-xl bg-white p-2 border border-emerald-100"><QRCode value={String(r.code).replace(/\s+/g, "")} size={120} /></div>
                   <p className="mt-2 text-2xl font-extrabold tracking-[0.15em] text-slate-900 font-mono">{r.code}</p>
                   <p className="text-sm font-bold text-emerald-600 mt-1">{r.total}</p>
+                  {r.orderId && (
+                    <div className="mt-3">
+                      <Link href={`/ticket/${r.orderId}`} className="inline-flex items-center justify-center rounded-lg bg-white border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition">Ver ticket</Link>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -183,11 +187,10 @@ export default function CartPage() {
               </a>
             )}
 
-            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
-              <p className="text-xs text-amber-700">También hemos enviado los códigos a tu email.</p>
-            </div>
+            <p className="mt-4 text-xs text-slate-400">Tip: lo tienes guardado en <Link href="/orders" className="font-semibold text-emerald-700 hover:text-emerald-800">Mis pedidos</Link>.</p>
             <div className="mt-5">
               <Link href="/offers" className="block w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition">Ver más ofertas</Link>
+              <Link href="/orders" className="mt-3 block w-full rounded-xl bg-white border border-slate-200 py-3 text-sm font-bold text-slate-800 hover:border-emerald-300 transition">Mis pedidos</Link>
             </div>
           </div>
         </div>

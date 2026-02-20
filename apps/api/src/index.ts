@@ -818,6 +818,8 @@ app.get("/api/orders/:id", async (req: any, reply: any) => {
       code: order.code,
       menuId: order.menuId,
       createdAt: order.createdAt,
+      deliveredAt: order.deliveredAt,
+      deliveredByUserId: order.deliveredByUserId,
       totalCents,
       commissionBpsAtPurchase,
       platformFeeCents,
