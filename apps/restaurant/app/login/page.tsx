@@ -1,13 +1,26 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:4000"
-).replace(/\/$/, "");
+function resolveApiBase() {
+  const env =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (env && typeof env === "string" && env.trim()) {
+    return env.trim().replace(/\/$/, "");
+  }
+
+  // DEV: use same hostname as this app so SameSite=Lax cookies work
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+
+  return "http://127.0.0.1:4000";
+}
+
+const API_BASE = resolveApiBase();
 
 export default function RestaurantLoginPage() {
   const router = useRouter();
@@ -15,6 +28,10 @@ export default function RestaurantLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const canSubmit = useMemo(() => {
+    return email.trim().length > 3 && password.length >= 6 && !loading;
+  }, [email, password, loading]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -36,7 +53,7 @@ export default function RestaurantLoginPage() {
         return;
       }
 
-      // Guardar token también en localStorage como backup (para fetch desde client-side)
+      // Keep token in localStorage as a backup for Authorization-based screens
       if (json.accessToken) {
         localStorage.setItem("bb_access_token", json.accessToken);
       }
@@ -44,9 +61,9 @@ export default function RestaurantLoginPage() {
         localStorage.setItem("bb_restaurant_user", JSON.stringify(json.user));
       }
 
-      window.location.href = "/r"; 
-    } catch (err: any) {
-      setError("Error de conexión. ¿Está la API arrancada?");
+      router.replace("/r");
+    } catch {
+      setError("Error de conexion. ¿Esta la API arrancada?");
     } finally {
       setLoading(false);
     }
@@ -55,18 +72,14 @@ export default function RestaurantLoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#fafdf7] to-emerald-50/30 px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-600 text-2xl font-extrabold text-white">
             BB
           </div>
           <h1 className="mt-4 text-2xl font-extrabold text-slate-900">Portal Restaurante</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Accede para gestionar tus ofertas y pedidos
-          </p>
+          <p className="mt-1 text-sm text-slate-400">Accede para gestionar tus ofertas y pedidos</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-600">Email</label>
@@ -82,7 +95,7 @@ export default function RestaurantLoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-600">Contraseña</label>
+            <label className="block text-sm font-medium text-slate-600">Contrasena</label>
             <input
               type="password"
               value={password}
@@ -102,16 +115,14 @@ export default function RestaurantLoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={!canSubmit}
             className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition active:opacity-90 disabled:opacity-50"
           >
-            {loading ? "Entrando…" : "Entrar"}
+            {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-300">
-          ¿No tienes cuenta? Contacta con el administrador.
-        </p>
+        <p className="mt-6 text-center text-xs text-slate-300">¿No tienes cuenta? Contacta con el administrador.</p>
       </div>
     </div>
   );

@@ -67,6 +67,14 @@ const devDefaults = new Set([
 
 const allowList = new Set(isProd ? extraAllowed : [...devDefaults, ...extraAllowed]);
 
+const devOriginRegex = [
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  /^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/,
+  /^capacitor:\/\/localhost(:\d+)?$/,
+  /^ionic:\/\/localhost(:\d+)?$/,
+];
+
+
 if (isProd && allowList.size === 0) {
   app.log.error("CORS_ORIGINS is empty in production. Refusing to start for safety.");
   process.exit(1);
@@ -78,6 +86,8 @@ await app.register(cors, {
     if (!origin) return cb(null, true);
 
     if (allowList.has(origin)) return cb(null, true);
+
+    if (!isProd && devOriginRegex.some((rx) => rx.test(origin))) return cb(null, true);
 
     return cb(new Error("Not allowed by CORS"), false);
   },

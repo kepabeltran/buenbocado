@@ -31,11 +31,25 @@ type AuthContextValue = AuthState & {
   getToken: () => string | null;
 };
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:4000"
-).replace(/\/$/, "");
+function resolveApiBase() {
+  const env =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (env && typeof env === "string" && env.trim()) {
+    return env.trim().replace(/\/$/, "");
+  }
+
+  // DEV: use same hostname as the Restaurant app (localhost or LAN IP)
+  // so SameSite=Lax cookies (bb_access / bb_refresh) are sent.
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+
+  return "http://127.0.0.1:4000";
+}
+
+const API_BASE = resolveApiBase();
 
 const PUBLIC_PATHS = ["/login"];
 
@@ -50,6 +64,82 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+function clearRestaurantStorage() {
+  try {
+    localStorage.removeItem("bb_access_token");
+    localStorage.removeItem("bb_restaurant_user");
+  } catch {}
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  // Uses HttpOnly bb_refresh cookie when present (SameSite=Lax)
+  try {
+    const res = await fetch(API_BASE + "/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json().catch(() => ({}));
+    const t = typeof json?.accessToken === "string" ? json.accessToken : null;
+    if (t) localStorage.setItem("bb_access_token", t);
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMe(token: string | null): Promise<RestaurantUser | null> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = "Bearer " + token;
+
+    const res = await fetch(API_BASE + "/api/auth/me", {
+      headers,
+      credentials: "include",
+    });
+
+    if (!res.ok) return null;
+
+    const json = await res.json().catch(() => ({}));
+    const user = json?.user ?? null;
+    if (!user) return null;
+
+    // role guard
+    if (user.role !== "restaurant") return null;
+
+    return user as RestaurantUser;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchUserWithFallback(): Promise<RestaurantUser | null> {
+  // 1) Try with local token (if any)
+  const token = typeof window !== "undefined" ? localStorage.getItem("bb_access_token") : null;
+  if (token) {
+    const me = await fetchMe(token);
+    if (me) return me;
+  }
+
+  // 2) Try refresh using HttpOnly cookie -> store token -> retry
+  const newToken = await refreshAccessToken();
+  if (newToken) {
+    const me = await fetchMe(newToken);
+    if (me) return me;
+  }
+
+  // 3) Last try: cookie-only /me (in case server supports bb_access cookie directly)
+  const meCookie = await fetchMe(null);
+  if (meCookie) {
+    // ensure token exists for the rest of the app (many screens use Authorization)
+    await refreshAccessToken();
+    return meCookie;
+  }
+
+  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,51 +157,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem("bb_access_token");
   }, []);
 
-  const fetchMe = useCallback(async () => {
-    const token = getToken();
-    if (!token) return null;
-
-    try {
-      const res = await fetch(API_BASE + "/api/auth/me", {
-        headers: { Authorization: "Bearer " + token },
-        credentials: "include",
-      });
-
-      if (res.status === 401) {
-        const refreshRes = await fetch(API_BASE + "/api/auth/refresh", {
-          method: "POST",
-          credentials: "include",
-        });
-
-        if (!refreshRes.ok) return null;
-
-        const refreshJson = await refreshRes.json();
-        if (refreshJson.accessToken) {
-          localStorage.setItem("bb_access_token", refreshJson.accessToken);
-          const retryRes = await fetch(API_BASE + "/api/auth/me", {
-            headers: { Authorization: "Bearer " + refreshJson.accessToken },
-            credentials: "include",
-          });
-          if (!retryRes.ok) return null;
-          const retryJson = await retryRes.json();
-          return retryJson?.user ?? null;
-        }
-        return null;
-      }
-
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json?.user ?? null;
-    } catch {
-      return null;
-    }
-  }, [getToken]);
-
   const refreshUser = useCallback(async () => {
     setState((s) => ({ ...s, loading: true }));
-    const user = await fetchMe();
+    const user = await fetchUserWithFallback();
     setState({ user, loading: false, error: null });
-  }, [fetchMe]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -120,30 +170,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "include",
       });
     } catch {}
-    localStorage.removeItem("bb_access_token");
-    localStorage.removeItem("bb_restaurant_user");
+    clearRestaurantStorage();
     setState({ user: null, loading: false, error: null });
-    router.push("/login");
+    router.replace("/login");
   }, [router]);
 
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
 
-  // 🔒 Revisión periódica de sesión: si el restaurante se suspende mientras está logeado,
-  // el API devolverá 403 y aquí lo expulsamos al login automáticamente.
+  // Periodic session check (soft-hardening)
   useEffect(() => {
     if (!state.user) return;
 
     const t = setInterval(async () => {
-      const u = await fetchMe();
+      const u = await fetchUserWithFallback();
       if (!u) {
         await logout();
       }
-    }, 10000);
+    }, 60000); // 60s (avoid hammering the API)
 
     return () => clearInterval(t);
-  }, [state.user, fetchMe, logout]);
+  }, [state.user, logout]);
 
   useEffect(() => {
     if (state.loading) return;
@@ -151,11 +199,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
     if (!state.user && !isPublic) {
-      router.push("/login");
+      router.replace("/login");
     }
 
     if (state.user && isPublic) {
-      router.push("/r");
+      router.replace("/r");
     }
   }, [state.loading, state.user, pathname, router]);
 
