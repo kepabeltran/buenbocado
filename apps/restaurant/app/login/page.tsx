@@ -3,16 +3,43 @@
 import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
+function isPrivateHost(host: string) {
+  if (host === "localhost" || host === "127.0.0.1") return true;
+  return (
+    host.startsWith("192.168.") ||
+    host.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  );
+}
+
 function resolveApiBase() {
   const env =
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  if (env && typeof env === "string" && env.trim()) {
-    return env.trim().replace(/\/$/, "");
+  const envTrim = typeof env === "string" ? env.trim() : "";
+
+  if (typeof window !== "undefined" && window.location) {
+    const proto = window.location.protocol;
+    const host = window.location.hostname;
+    const isWeb = proto === "http:" || proto === "https:";
+
+    if (isWeb && host && isPrivateHost(host)) {
+      let envHost = "";
+      try {
+        if (envTrim) envHost = new URL(envTrim).hostname;
+      } catch {
+        envHost = "";
+      }
+
+      if (!envHost || (isPrivateHost(envHost) && envHost !== host)) {
+        return `http://${host}:4000`;
+      }
+    }
   }
 
-  // DEV: use same hostname as this app so SameSite=Lax cookies work
+  if (envTrim) return envTrim.replace(/\/$/, "");
+
   if (typeof window !== "undefined" && window.location?.hostname) {
     return `http://${window.location.hostname}:4000`;
   }
@@ -53,13 +80,8 @@ export default function RestaurantLoginPage() {
         return;
       }
 
-      // Keep token in localStorage as a backup for Authorization-based screens
-      if (json.accessToken) {
-        localStorage.setItem("bb_access_token", json.accessToken);
-      }
-      if (json.user) {
-        localStorage.setItem("bb_restaurant_user", JSON.stringify(json.user));
-      }
+      if (json.accessToken) localStorage.setItem("bb_access_token", json.accessToken);
+      if (json.user) localStorage.setItem("bb_restaurant_user", JSON.stringify(json.user));
 
       router.replace("/r");
     } catch {

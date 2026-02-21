@@ -31,17 +31,45 @@ type AuthContextValue = AuthState & {
   getToken: () => string | null;
 };
 
+function isPrivateHost(host: string) {
+  if (host === "localhost" || host === "127.0.0.1") return true;
+  return (
+    host.startsWith("192.168.") ||
+    host.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  );
+}
+
 function resolveApiBase() {
   const env =
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  if (env && typeof env === "string" && env.trim()) {
-    return env.trim().replace(/\/$/, "");
+  const envTrim = typeof env === "string" ? env.trim() : "";
+
+  // In dev on private networks, keep API host aligned with the current app host
+  // so SameSite=Lax cookies work (localhost vs 127.0.0.1 vs 192.168.x.x).
+  if (typeof window !== "undefined" && window.location) {
+    const proto = window.location.protocol;
+    const host = window.location.hostname;
+    const isWeb = proto === "http:" || proto === "https:";
+
+    if (isWeb && host && isPrivateHost(host)) {
+      let envHost = "";
+      try {
+        if (envTrim) envHost = new URL(envTrim).hostname;
+      } catch {
+        envHost = "";
+      }
+
+      if (!envHost || (isPrivateHost(envHost) && envHost !== host)) {
+        return `http://${host}:4000`;
+      }
+    }
   }
 
-  // DEV: use same hostname as the Restaurant app (localhost or LAN IP)
-  // so SameSite=Lax cookies (bb_access / bb_refresh) are sent.
+  if (envTrim) return envTrim.replace(/\/$/, "");
+
   if (typeof window !== "undefined" && window.location?.hostname) {
     return `http://${window.location.hostname}:4000`;
   }
@@ -74,7 +102,6 @@ function clearRestaurantStorage() {
 }
 
 async function refreshAccessToken(): Promise<string | null> {
-  // Uses HttpOnly bb_refresh cookie when present (SameSite=Lax)
   try {
     const res = await fetch(API_BASE + "/api/auth/refresh", {
       method: "POST",
@@ -107,7 +134,6 @@ async function fetchMe(token: string | null): Promise<RestaurantUser | null> {
     const user = json?.user ?? null;
     if (!user) return null;
 
-    // role guard
     if (user.role !== "restaurant") return null;
 
     return user as RestaurantUser;
@@ -118,7 +144,8 @@ async function fetchMe(token: string | null): Promise<RestaurantUser | null> {
 
 async function fetchUserWithFallback(): Promise<RestaurantUser | null> {
   // 1) Try with local token (if any)
-  const token = typeof window !== "undefined" ? localStorage.getItem("bb_access_token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("bb_access_token") : null;
   if (token) {
     const me = await fetchMe(token);
     if (me) return me;
@@ -131,11 +158,10 @@ async function fetchUserWithFallback(): Promise<RestaurantUser | null> {
     if (me) return me;
   }
 
-  // 3) Last try: cookie-only /me (in case server supports bb_access cookie directly)
+  // 3) Cookie-only /me (if server supports bb_access cookie directly)
   const meCookie = await fetchMe(null);
   if (meCookie) {
-    // ensure token exists for the rest of the app (many screens use Authorization)
-    await refreshAccessToken();
+    await refreshAccessToken(); // best-effort token for Authorization-based screens
     return meCookie;
   }
 
@@ -151,6 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true,
     error: null,
   });
+
+  // Important: after a successful login, the token appears in localStorage,
+  // but this provider (already mounted) must re-check once before redirecting.
+  const [softRetryDone, setSoftRetryDone] = useState(false);
 
   const getToken = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
@@ -171,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch {}
     clearRestaurantStorage();
+    setSoftRetryDone(false);
     setState({ user: null, loading: false, error: null });
     router.replace("/login");
   }, [router]);
@@ -179,16 +210,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
-  // Periodic session check (soft-hardening)
   useEffect(() => {
     if (!state.user) return;
 
     const t = setInterval(async () => {
       const u = await fetchUserWithFallback();
-      if (!u) {
-        await logout();
-      }
-    }, 60000); // 60s (avoid hammering the API)
+      if (!u) await logout();
+    }, 60000);
 
     return () => clearInterval(t);
   }, [state.user, logout]);
@@ -198,14 +226,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
-    if (!state.user && !isPublic) {
-      router.replace("/login");
+    // Reset soft retry whenever we're on the login route
+    if (isPublic) {
+      if (softRetryDone) setSoftRetryDone(false);
+      if (state.user) router.replace("/r");
+      return;
     }
 
-    if (state.user && isPublic) {
-      router.replace("/r");
+    // Protected route
+    if (!state.user) {
+      // One soft retry to catch "token just stored after login" without needing Ctrl+F5
+      if (!softRetryDone) {
+        setSoftRetryDone(true);
+        refreshUser();
+        return;
+      }
+      router.replace("/login");
     }
-  }, [state.loading, state.user, pathname, router]);
+  }, [state.loading, state.user, pathname, router, softRetryDone, refreshUser]);
 
   return (
     <AuthContext.Provider value={{ ...state, logout, refreshUser, getToken }}>
