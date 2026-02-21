@@ -1,21 +1,25 @@
-# BuenBocado — normalización de finales de línea
-# Objetivo: evitar cambios LF/CRLF inesperados en Windows y mantener el repo estable.
-
-# Por defecto: texto con LF
+# Normalize text files to LF in repo by default
 * text=auto eol=lf
 
-# Scripts Windows: CRLF
+# Windows scripts should stay CRLF
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
-# Binarios (no tocar)
-*.png binary
-*.jpg binary
+# Shell scripts
+*.sh  text eol=lf
+
+# Data / configs
+*.env* text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Treat common binaries as binary (no EOL conversions)
+*.png  binary
+*.jpg  binary
 *.jpeg binary
+*.gif  binary
 *.webp binary
-*.ico binary
-*.pdf binary
-*.zip binary
-*.woff binary
-*.woff2 binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
