@@ -4,11 +4,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:4000"
-).replace(/\/$/, "");
+function resolveApiBase() {
+  const env =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (env && typeof env === "string" && env.trim()) {
+    return env.trim().replace(/\/$/, "");
+  }
+
+  // DEV: use same hostname as the Admin app (localhost or LAN IP)
+  // so SameSite=Lax cookies (bb_access / bb_refresh) are sent.
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+
+  return "http://127.0.0.1:4000";
+}
+
+const API_BASE = resolveApiBase();
 
 type AdminUser = { id: string; email: string; name: string; role: string };
 
@@ -19,6 +33,56 @@ const NAV_ITEMS = [
   { href: "/admin/users", label: "Usuarios" },
   { href: "/admin/settlements", label: "Liquidaciones" },
 ];
+
+function clearAdminStorage() {
+  try {
+    localStorage.removeItem("bb_admin_token");
+    localStorage.removeItem("bb_admin_user");
+  } catch {}
+}
+
+function kickToLogin(router: ReturnType<typeof useRouter>) {
+  clearAdminStorage();
+  router.replace("/admin/login");
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  try {
+    const res = await fetch(API_BASE + "/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json().catch(() => ({}));
+    const t = typeof json?.accessToken === "string" ? json.accessToken : null;
+    if (t) localStorage.setItem("bb_admin_token", t);
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMe(token: string | null): Promise<AdminUser | null> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = "Bearer " + token;
+
+    const res = await fetch(API_BASE + "/api/auth/me", {
+      headers,
+      credentials: "include",
+    });
+
+    if (!res.ok) return null;
+
+    const json = await res.json().catch(() => ({}));
+    if (json?.user?.role !== "admin") return null;
+    return json.user as AdminUser;
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,45 +97,64 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (isLoginPage) { setLoading(false); return; }
+    if (isLoginPage) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
 
     async function check() {
-      const token = getToken();
-      if (!token) { setLoading(false); router.push("/admin/login"); return; }
+      setLoading(true);
 
-      try {
-        const res = await fetch(API_BASE + "/api/auth/me", {
-          headers: { Authorization: "Bearer " + token },
-        });
-        if (!res.ok) { router.push("/admin/login"); return; }
-        const json = await res.json();
-        if (json?.user?.role !== "admin") { router.push("/admin/login"); return; }
-        setUser(json.user);
-      } catch {
-        router.push("/admin/login");
-      } finally {
-        setLoading(false);
+      // 1) Try with local token (if any)
+      let token = getToken();
+      let me = await fetchMe(token);
+
+      // 2) If invalid, try cookie-based session (bb_access)
+      if (!me) {
+        me = await fetchMe(null);
       }
+
+      // 3) If still not, try refresh (bb_refresh) and retry
+      if (!me) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          token = newToken;
+          me = await fetchMe(token);
+        }
+      }
+
+      if (cancelled) return;
+
+      if (!me) {
+        kickToLogin(router);
+        return;
+      }
+
+      setUser(me);
+      setLoading(false);
     }
+
     check();
+
+    return () => {
+      cancelled = true;
+    };
   }, [getToken, router, isLoginPage]);
 
   function logout() {
-    localStorage.removeItem("bb_admin_token");
-    localStorage.removeItem("bb_admin_user");
+    clearAdminStorage();
     fetch(API_BASE + "/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     router.push("/admin/login");
   }
 
-  // Login page: render without nav
-  if (isLoginPage) {
-    return <>{children}</>;
-  }
+  if (isLoginPage) return <>{children}</>;
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-zinc-500">Cargando…</p>
+        <p className="text-sm text-zinc-500">Cargando...</p>
       </div>
     );
   }
@@ -119,9 +202,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {children}
-      </main>
+      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
     </div>
   );
 }

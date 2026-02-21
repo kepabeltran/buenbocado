@@ -1,24 +1,41 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:4000"
-).replace(/\/$/, "");
+function resolveApiBase() {
+  const env =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (env && typeof env === "string" && env.trim()) {
+    return env.trim().replace(/\/$/, "");
+  }
+
+  // DEV: use same hostname as this app (so SameSite=Lax cookies work)
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+
+  return "http://127.0.0.1:4000";
+}
+
+const API_BASE = resolveApiBase();
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  async function handleSubmit(e: FormEvent) {
+  const canSubmit = useMemo(() => {
+    return email.trim().length > 3 && password.length >= 6 && !loading;
+  }, [email, password, loading]);
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErr(null);
     setLoading(true);
 
     try {
@@ -30,77 +47,61 @@ export default function AdminLoginPage() {
       });
 
       const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || "Error");
 
-      if (!res.ok) {
-        setError(json?.message || "Email o contraseña incorrectos");
-        return;
-      }
-
-      if (json.accessToken) {
-        localStorage.setItem("bb_admin_token", json.accessToken);
-      }
-      if (json.user) {
-        localStorage.setItem("bb_admin_user", JSON.stringify(json.user));
-      }
+      if (json?.accessToken) localStorage.setItem("bb_admin_token", json.accessToken);
+      if (json?.user) localStorage.setItem("bb_admin_user", JSON.stringify(json.user));
 
       router.push("/admin/restaurants");
-    } catch {
-      setError("Error de conexión. ¿Está la API arrancada?");
+    } catch (e: any) {
+      setErr(String(e?.message || e));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-zinc-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-red-700 text-2xl font-bold text-white">
-            BB
-          </div>
-          <h1 className="mt-4 text-2xl font-bold text-zinc-900">Admin Panel</h1>
-          <p className="mt-1 text-sm text-zinc-500">Acceso restringido</p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-zinc-900">Admin</h1>
+        <p className="mt-1 text-sm text-zinc-500">Acceso al panel</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Email</label>
+        {err && <div className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</div>}
+
+        <form className="mt-4 space-y-3" onSubmit={onSubmit}>
+          <label className="block">
+            <span className="text-xs font-semibold text-zinc-700">Email</span>
             <input
-              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              placeholder="admin@buenbocado.com"
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400"
+              type="email"
+              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+              autoComplete="username"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700">Contraseña</label>
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-semibold text-zinc-700">Password</span>
             <input
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
+              type="password"
+              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
               autoComplete="current-password"
-              placeholder="••••••••"
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400"
             />
-          </div>
-
-          {error && (
-            <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
-              {error}
-            </div>
-          )}
+          </label>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
+            disabled={!canSubmit}
+            className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {loading ? "Entrando…" : "Entrar como Admin"}
+            {loading ? "Entrando..." : "Entrar"}
           </button>
+
+          <p className="mt-2 text-[11px] text-zinc-500">
+            DEV: para cookies de sesion (bb_access / bb_refresh) usa la misma IP/hostname en app y API.
+          </p>
         </form>
       </div>
     </div>
