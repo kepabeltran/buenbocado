@@ -5,11 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../_auth/AuthProvider";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:4000"
-).replace(/\/$/, "");
+function resolveApiBase() {
+  const env =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  if (env && typeof env === "string" && env.trim()) {
+    return env.trim().replace(/\/$/, "");
+  }
+
+  // DEV: use same hostname as this app (localhost or LAN IP)
+  // so SameSite=Lax cookies (bb_access / bb_refresh) are sent.
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+
+  return "http://127.0.0.1:4000";
+}
+
+const API_BASE = resolveApiBase();
 
 type Tab = "login" | "registro";
 
