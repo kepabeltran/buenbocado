@@ -26,6 +26,18 @@ type AdminRestaurant = {
   updatedAt: string;
 };
 
+
+type RestUserDto = {
+  id: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  restaurantId: string;
+  createdAt: string;
+  restaurant: { name: string } | null;
+};
+
+
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -74,6 +86,23 @@ function inputStyle(disabled = false): CSSProperties {
   };
 }
 
+
+function generateClientTempPassword(len = 12) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  try {
+    const arr = new Uint32Array(len);
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      crypto.getRandomValues(arr);
+      let out = "";
+      for (let i = 0; i < len; i++) out += alphabet[arr[i] % alphabet.length];
+      return out;
+    }
+  } catch {}
+  let out = "";
+  for (let i = 0; i < len; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
+}
+
 const cardStyle: CSSProperties = {
   background: "rgba(255,255,255,0.55)",
   border: "1px solid rgba(0,0,0,0.06)",
@@ -92,6 +121,8 @@ const btnStyle: CSSProperties = {
 
 export default function AdminRestaurantsPage() {
   const [items, setItems] = useState<AdminRestaurant[]>([]);
+  const [restUsers, setRestUsers] = useState<RestUserDto[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -108,34 +139,88 @@ export default function AdminRestaurantsPage() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Acceso al portal (OWNER)
+  const [portalOwnerEmail, setPortalOwnerEmail] = useState("");
+  const [portalMsg, setPortalMsg] = useState<string | null>(null);
+  const [portalError, setPortalError] = useState<string | null>(null);
+  const [portalTempPassword, setPortalTempPassword] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+
+  const ownerByRestaurantId = useMemo(() => {
+    const map = new Map<string, RestUserDto>();
+    for (const u of restUsers) {
+      if (String(u.role).toUpperCase() === "OWNER" && !map.has(u.restaurantId)) {
+        map.set(u.restaurantId, u);
+      }
+    }
+    return map;
+  }, [restUsers]);
+
+  const editingOwner = useMemo(() => {
+    if (!editing) return null;
+    return ownerByRestaurantId.get(editing.id) ?? null;
+  }, [editing, ownerByRestaurantId]);
+
   async function load() {
     setLoading(true);
+    setUsersLoading(true);
     setErr(null);
+
     try {
       const token = getTokenOrKick();
       if (!token) return;
 
-const res = await fetch(`${API_BASE}/api/admin/restaurants`, {
-        cache: "no-store",
-        headers: { Authorization: "Bearer " + token },
-      });
-      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
-      const j = await res.json();
-      if (!j?.ok) throw new Error(j?.message || "Error cargando restaurantes");
-      setItems(j.data || []);
+      const [resR, resU] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/restaurants`, {
+          cache: "no-store",
+          headers: { Authorization: "Bearer " + token },
+        }),
+        fetch(`${API_BASE}/api/admin/restaurant-users`, {
+          headers: { Authorization: "Bearer " + token },
+        }),
+      ]);
 
-      // si hay datos y estamos en modo edición sin selección, abre el primero
-      if (!isCreate && !editingId && (j.data || []).length > 0) {
-        startEdit(j.data[0]);
+      if (
+        resR.status === 401 || resR.status === 403 ||
+        resU.status === 401 || resU.status === 403
+      ) { kickToLogin(); return; }
+
+      const jR = await resR.json();
+      if (!jR?.ok) throw new Error(jR?.message || "Error cargando restaurantes");
+      setItems(jR.data || []);
+
+      // Carga de usuarios de restaurante (para detectar OWNER por restaurante).
+      // Si falla, no bloquea la pantalla: solo se pierde el indicador de estado.
+      try {
+        const jU = await resU.json().catch(() => ({}));
+        setRestUsers(jU?.ok ? (jU.data || []) : []);
+      } catch {
+        setRestUsers([]);
+      }
+
+      // Si hay datos y estamos en modo edición sin selección, abre el primero
+      if (!isCreate && !editingId && (jR.data || []).length > 0) {
+        startEdit(jR.data[0]);
       }
     } catch (e: any) {
       setErr(String(e?.message ?? e));
     } finally {
       setLoading(false);
+      setUsersLoading(false);
     }
   }
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  useEffect(() => {
+    setPortalOwnerEmail("");
+    setPortalMsg(null);
+    setPortalError(null);
+    setPortalTempPassword(null);
+    setPortalLoading(false);
+  }, [editingId]);
+
 
   function startEdit(r: AdminRestaurant) {
     setMode("edit");
@@ -229,6 +314,90 @@ const label = nextActive ? "reactivar" : "suspender";
       setActionLoading(false);
     }
   }
+
+  function copyText(text: string) {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+        return;
+      }
+    } catch {}
+    window.prompt("Copia:", text);
+  }
+
+  async function sendCredentials(userId: string) {
+    if (!userId) return;
+    setPortalMsg(null);
+    setPortalError(null);
+    setPortalTempPassword(null);
+    setPortalLoading(true);
+
+    const token = getTokenOrKick();
+    if (!token) { setPortalLoading(false); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/restaurant-users/${userId}/send-credentials`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (res.status === 401 || res.status === 403) { kickToLogin(); return; }
+      const j = await res.json();
+      if (!j?.ok) throw new Error(j?.message || "Error enviando credenciales");
+      setPortalMsg(j?.message || "Credenciales generadas");
+      if (j?.tempPassword) setPortalTempPassword(String(j.tempPassword));
+      await load();
+    } catch (e: any) {
+      setPortalError(String(e?.message ?? e));
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  async function createOwnerAndSend() {
+    if (!editing) return;
+
+    const email = String(portalOwnerEmail || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setPortalError("Email invalido");
+      return;
+    }
+
+    setPortalMsg(null);
+    setPortalError(null);
+    setPortalTempPassword(null);
+    setPortalLoading(true);
+
+    const token = getTokenOrKick();
+    if (!token) { setPortalLoading(false); return; }
+
+    try {
+      const createRes = await fetch(`${API_BASE}/api/admin/restaurant-users`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: generateClientTempPassword(14),
+          restaurantId: editing.id,
+          role: "OWNER",
+        }),
+      });
+      if (createRes.status === 401 || createRes.status === 403) { kickToLogin(); return; }
+      const cj = await createRes.json().catch(() => ({}));
+      if (!cj?.ok) {
+        const msg = cj?.message || cj?.error || "Error creando usuario OWNER";
+        throw new Error(String(msg));
+      }
+      const newUserId = String(cj?.data?.id || "");
+      if (!newUserId) throw new Error("Usuario creado pero sin id");
+
+      await sendCredentials(newUserId);
+    } catch (e: any) {
+      setPortalError(String(e?.message ?? e));
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
 
   async function save() {
     if (!editingId) return;
@@ -362,6 +531,7 @@ const name = String(draft.name ?? "").trim();
               <div style={{ display: "grid", gap: 10 }}>
                 {items.map((r) => {
                   const active = r.id === editingId && !isCreate;
+                  const owner = ownerByRestaurantId.get(r.id);
                   return (
                     <button
                       key={r.id}
@@ -385,7 +555,26 @@ const name = String(draft.name ?? "").trim();
                             {modeLabel(r.settlementMode)} · W{r.settlementWeekday} · {r.settlementTimezone}
                           </div>
                         </div>
-                        <div style={{ fontWeight: 800 }}>{pctFromBps(r.commissionBps)}%</div>
+                        <div style={{ display: "grid", justifyItems: "end", gap: 6 }}>
+                          <div style={{ fontWeight: 800 }}>{pctFromBps(r.commissionBps)}%</div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              border: "1px solid rgba(0,0,0,0.10)",
+                              background: usersLoading
+                                ? "rgba(0,0,0,0.04)"
+                                : owner
+                                  ? "rgba(16,185,129,0.12)"
+                                  : "rgba(239,68,68,0.10)",
+                              opacity: usersLoading ? 0.7 : 1,
+                            }}
+                          >
+                            {usersLoading ? "OWNER..." : owner ? "OWNER OK" : "SIN OWNER"}
+                          </div>
+                        </div>
                       </div>
                     </button>
                   );
@@ -505,11 +694,110 @@ const name = String(draft.name ?? "").trim();
                   <span style={{ fontSize: 12, opacity: 0.7 }}>Se mostrará en la ficha del restaurante en la app.</span>
                 </label>
 
+                {!isCreate && editing ? (
+                  <div
+                    style={{
+                      marginTop: 2,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      background: "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>
+                      <div style={{ fontWeight: 800, opacity: 0.9 }}>Acceso al portal</div>
+
+                      {usersLoading ? (
+                        <div style={{ marginTop: 4, opacity: 0.75 }}>Comprobando usuario OWNER...</div>
+                      ) : editingOwner ? (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ fontWeight: 800 }}>OWNER OK</span>
+                          <span style={{ opacity: 0.7 }}>
+                            {" "}
+                            · {editingOwner.email}
+                            {!editingOwner.isActive ? " (inactivo)" : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ fontWeight: 800, color: "crimson" }}>SIN OWNER</span>
+                          <span style={{ opacity: 0.7 }}> · No hay usuario de acceso para este restaurante.</span>
+                        </div>
+                      )}
+
+                      {editingOwner ? (
+                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              sendCredentials(editingOwner.id);
+                            }}
+                            disabled={portalLoading}
+                            style={{ ...btnStyle, fontWeight: 800, opacity: portalLoading ? 0.7 : 1 }}
+                          >
+                            {portalLoading ? "Enviando" : "Enviar credenciales"}
+                          </button>
+                          <span style={{ opacity: 0.75 }}>Luego el restaurante cambia la contraseña en /r/settings.</span>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                          <label style={{ display: "grid", gap: 6 }}>
+                            <span style={{ fontSize: 12, opacity: 0.75 }}>Email del propietario</span>
+                            <input
+                              value={portalOwnerEmail}
+                              onChange={(e) => setPortalOwnerEmail(e.target.value)}
+                              style={inputStyle()}
+                              placeholder="propietario@restaurante.com"
+                            />
+                          </label>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                createOwnerAndSend();
+                              }}
+                              disabled={portalLoading}
+                              style={{ ...btnStyle, fontWeight: 800, opacity: portalLoading ? 0.7 : 1 }}
+                            >
+                              {portalLoading ? "Creando" : "Crear OWNER + enviar"}
+                            </button>
+                            <span style={{ opacity: 0.75 }}>Alternativa: Admin -&gt; Usuarios (soporte).</span>
+                          </div>
+                          <div style={{ opacity: 0.75 }}>Luego el restaurante cambia la contraseña en /r/settings.</div>
+                        </div>
+                      )}
+
+                      {portalError ? (
+                        <div style={{ marginTop: 8, color: "crimson", fontWeight: 700 }}>{portalError}</div>
+                      ) : null}
+
+                      {portalMsg ? (
+                        <div style={{ marginTop: 8, color: "green", fontWeight: 700 }}>{portalMsg}</div>
+                      ) : null}
+
+                      {portalTempPassword ? (
+                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontWeight: 800 }}>Contraseña temporal:</span>
+                          <code style={{ padding: "2px 8px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.12)", background: "rgba(255,255,255,0.85)" }}>
+                            {portalTempPassword}
+                          </code>
+                          <button onClick={() => copyText(portalTempPassword)} style={{ ...btnStyle, padding: "6px 10px", fontSize: 12 }}>
+                            Copiar
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+
                 {isCreate && (
                   <label style={{ display: "grid", gap: 6 }}>
                     <span style={{ fontSize: 12, opacity: 0.75 }}>Email del propietario</span>
                     <input value={String((draft as any).ownerEmail ?? "")} onChange={(e) => setDraft((d: any) => ({ ...d, ownerEmail: e.target.value }))} style={inputStyle()} placeholder="propietario@restaurante.com" />
-                    <span style={{ fontSize: 12, opacity: 0.7 }}>Se creará automáticamente un usuario OWNER con este email. Luego envía las credenciales desde Usuarios.</span>
+                    <span style={{ fontSize: 12, opacity: 0.7 }}>Se creará automáticamente un usuario OWNER con este email (si no existe). Luego, ya en Edición, envía credenciales desde "Acceso al portal".</span>
                   </label>
                 )}
 
