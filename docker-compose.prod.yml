@@ -50,6 +50,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      ENABLE_INTERNAL_ENDPOINTS: ${ENABLE_INTERNAL_ENDPOINTS}
+      X_INTERNAL_KEY: ${X_INTERNAL_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
+      APP_URL_RESTAURANT: ${APP_URL_RESTAURANT}
     volumes:
       - ./:/app
       - api_uploads:/app/apps/api/uploads
@@ -81,6 +87,8 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_RESTAURANT_PORTAL_ORIGIN: ${NEXT_PUBLIC_RESTAURANT_PORTAL_ORIGIN}
+      NEXT_PUBLIC_RESTAURANT_URL: ${NEXT_PUBLIC_RESTAURANT_URL}
     volumes:
       - ./:/app
     depends_on:
